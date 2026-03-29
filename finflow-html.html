@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>FinFlow</title>
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<style>
+:root{
+  --primary:#1565C0;--primary-dark:#0D47A1;--primary-light:#E3F2FD;
+  --surface:#fff;--surface2:#F5F5F5;--surface3:#EEE;
+  --bg:#F0F4F8;--border:#E0E0E0;
+  --text:#212121;--text2:#616161;--text3:#9E9E9E;
+  --green:#2E7D32;--green-bg:#E8F5E9;
+  --red:#C62828;--red-bg:#FFEBEE;
+  --yellow:#E65100;--yellow-bg:#FFF3E0;
+  --india:#BF360C;--india-bg:#FBE9E7;
+  --pending:#E65100;--pending-bg:#FFF3E0;
+  --radius:12px;--shadow:0 2px 8px rgba(0,0,0,.12);--shadow-lg:0 6px 20px rgba(0,0,0,.18);
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;overflow:hidden;}
+body{font-family:'Roboto',Arial,sans-serif;background:var(--bg);color:var(--text);font-size:14px;display:flex;flex-direction:column;}
+
+.appbar{background:var(--primary);color:#fff;height:56px;display:flex;align-items:center;padding:0 16px;gap:12px;z-index:10;box-shadow:0 2px 4px rgba(0,0,0,.3);flex-shrink:0;}
+.appbar-logo{font-size:22px;font-weight:700;}
+.appbar-logo span{color:#FFC107;}
+.appbar-title{font-size:20px;font-weight:500;flex:1;}
+.icon-btn{width:40px;height:40px;border:none;background:none;color:#fff;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:20px;}
+
+.sync-bar{display:flex;align-items:center;gap:6px;font-size:11px;padding:5px 16px;flex-shrink:0;transition:background .3s;}
+.sync-bar.online{background:#E8F5E9;color:#2E7D32;}
+.sync-bar.offline{background:#FFF3E0;color:#E65100;}
+.sync-bar.syncing{background:#E3F2FD;color:#1565C0;}
+.sync-bar.error{background:#FFEBEE;color:#C62828;}
+.sync-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.sync-bar.online .sync-dot{background:#2E7D32;}
+.sync-bar.offline .sync-dot{background:#E65100;}
+.sync-bar.syncing .sync-dot{background:#1565C0;animation:pulse 1s infinite;}
+.sync-bar.error .sync-dot{background:#C62828;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:.3;}}
+.sync-user{margin-left:auto;font-size:11px;font-weight:500;display:flex;align-items:center;gap:6px;}
+.sync-signin-btn{background:var(--primary);color:#fff;border:none;border-radius:100px;padding:4px 12px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;}
+.sync-signout-btn{background:none;border:none;color:inherit;font-size:10px;cursor:pointer;text-decoration:underline;font-family:inherit;}
+.sync-avatar{width:22px;height:22px;border-radius:50%;object-fit:cover;}
+
+.monthbar{background:var(--primary-dark);color:#fff;display:flex;align-items:center;justify-content:center;padding:6px 16px;gap:16px;flex-shrink:0;}
+.month-nav-btn{width:32px;height:32px;border:none;background:rgba(255,255,255,.15);border-radius:50%;color:#fff;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;}
+.month-lbl{font-size:14px;font-weight:500;min-width:130px;text-align:center;}
+
+.scroll-area{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 12px 80px;}
+
+.bottom-nav{background:var(--surface);border-top:1px solid var(--border);height:60px;display:flex;align-items:center;flex-shrink:0;box-shadow:0 -2px 8px rgba(0,0,0,.1);z-index:10;}
+.bnav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;padding:6px 0;position:relative;overflow:hidden;border:none;background:none;}
+.bnav-icon{font-size:22px;line-height:1;}
+.bnav-label{font-size:10px;font-weight:500;color:var(--text3);}
+.bnav-item.active .bnav-label{color:var(--primary);}
+.bnav-indicator{position:absolute;top:4px;width:64px;height:32px;background:var(--primary-light);border-radius:100px;opacity:0;transition:opacity .2s;}
+.bnav-item.active .bnav-indicator{opacity:1;}
+
+.tab-pane{display:none;}
+.tab-pane.active{display:block;}
+
+.mcard{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:10px;overflow:hidden;}
+.mcard-title{font-size:14px;font-weight:500;color:var(--text2);padding:14px 16px 0;}
+
+.sum-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+.sum-chip{background:var(--surface);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow);position:relative;overflow:hidden;}
+.sum-chip::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;}
+.sum-chip.c-exp::before{background:var(--red);}
+.sum-chip.c-emi::before{background:var(--yellow);}
+.sum-chip.c-sav::before{background:var(--green);}
+.sum-chip.c-ind::before{background:var(--india);}
+.sum-lbl{font-size:10px;font-weight:500;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:5px;}
+.sum-amt{font-size:20px;font-weight:700;line-height:1;}
+.sum-sub{font-size:10px;color:var(--text3);margin-top:3px;}
+
+.list-item{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);position:relative;overflow:hidden;}
+.list-item:last-child{border-bottom:none;}
+.li-icon{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.li-body{flex:1;min-width:0;}
+.li-title{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.li-sub{font-size:12px;color:var(--text3);margin-top:1px;}
+.li-right{text-align:right;flex-shrink:0;}
+.li-amt{font-size:14px;font-weight:600;}
+.li-date{font-size:11px;color:var(--text3);margin-top:1px;}
+.li-actions{display:flex;gap:2px;flex-shrink:0;}
+.act-btn{width:34px;height:34px;border:none;background:none;cursor:pointer;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;color:var(--text3);}
+
+.prog-wrap{padding:0 16px 12px;}
+.prog-row{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;}
+.prog-bg{height:6px;background:var(--surface3);border-radius:100px;overflow:hidden;}
+.prog-fill{height:100%;border-radius:100px;transition:width .4s;}
+
+.hscroll{display:flex;gap:10px;overflow-x:auto;padding:0 0 8px;scrollbar-width:none;}
+.hscroll::-webkit-scrollbar{display:none;}
+.emi-card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px;min-width:210px;max-width:210px;flex-shrink:0;}
+.emi-name{font-size:14px;font-weight:600;margin-bottom:2px;}
+.emi-bank{font-size:11px;color:var(--text3);}
+.emi-amt{font-size:22px;font-weight:700;color:var(--primary);margin:10px 0 4px;}
+.goal-card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px;min-width:200px;max-width:200px;flex-shrink:0;position:relative;overflow:hidden;}
+.goal-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--green);}
+
+.acc-card{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:10px;overflow:hidden;}
+.acc-hdr{display:flex;align-items:center;gap:10px;padding:14px 16px;cursor:pointer;}
+.acc-badge{background:var(--india-bg);color:var(--india);font-size:10px;font-weight:700;padding:3px 10px;border-radius:100px;flex-shrink:0;}
+.acc-info{flex:1;min-width:0;}
+.acc-title{font-weight:600;font-size:13px;}
+.acc-sub{font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.acc-total{font-size:16px;font-weight:700;color:var(--india);flex-shrink:0;}
+.acc-arrow{font-size:18px;color:var(--text3);transition:transform .25s;flex-shrink:0;}
+.acc-arrow.open{transform:rotate(180deg);}
+.acc-body{max-height:0;overflow:hidden;transition:max-height .3s ease;}
+.acc-body.open{max-height:1000px;}
+
+.fab{position:fixed;bottom:76px;right:16px;width:56px;height:56px;background:var(--primary);border-radius:50%;border:none;color:#fff;font-size:28px;box-shadow:var(--shadow-lg);cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:50;transition:transform .15s;}
+.fab:active{transform:scale(.92);}
+
+.sheet-overlay{position:fixed;inset:0;background:rgba(0,0,0,0);z-index:100;pointer-events:none;transition:background .25s;}
+.sheet-overlay.open{background:rgba(0,0,0,.5);pointer-events:all;}
+.sheet{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-radius:20px 20px 0 0;padding:0 16px 32px;z-index:101;transform:translateY(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);max-height:92vh;overflow-y:auto;}
+.sheet.open{transform:translateY(0);}
+.sheet-handle{width:36px;height:4px;background:var(--border);border-radius:100px;margin:12px auto 4px;}
+.sheet-title{font-size:18px;font-weight:600;padding:8px 0 16px;}
+.sheet-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:16px;}
+
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.field{display:flex;flex-direction:column;gap:4px;margin-bottom:2px;}
+.field.span2{grid-column:1/-1;}
+.flbl{font-size:11px;font-weight:500;color:var(--text2);letter-spacing:.3px;}
+.finp,.fsel{padding:12px;border:1px solid var(--border);border-radius:10px;font-size:14px;color:var(--text);background:var(--surface2);outline:none;width:100%;font-family:inherit;}
+.finp:focus,.fsel:focus{border-color:var(--primary);background:#fff;}
+
+.mbtn{padding:10px 20px;border:none;border-radius:100px;cursor:pointer;font-size:14px;font-weight:500;font-family:inherit;transition:all .15s;display:inline-flex;align-items:center;gap:6px;}
+.mbtn-filled{background:var(--primary);color:#fff;}
+.mbtn-filled:active{background:var(--primary-dark);}
+.mbtn-text{background:none;color:var(--primary);}
+.mbtn-tonal{background:var(--primary-light);color:var(--primary);}
+
+.chip-row{display:flex;gap:8px;overflow-x:auto;padding:8px 0;scrollbar-width:none;}
+.chip-row::-webkit-scrollbar{display:none;}
+.chip{padding:6px 14px;border-radius:100px;border:1px solid var(--border);background:var(--surface);font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;color:var(--text2);}
+.chip.active{background:var(--primary);color:#fff;border-color:var(--primary);}
+
+.rate-bar{background:var(--india-bg);border-bottom:1px solid #FFCCBC;padding:8px 16px;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--india);}
+.rate-inp{width:70px;padding:3px 8px;border:1px solid #FFCCBC;border-radius:6px;font-size:12px;color:var(--india);background:transparent;outline:none;}
+
+.rtype-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+.rtype-btn{padding:14px;border:2px solid var(--border);border-radius:var(--radius);background:var(--surface2);cursor:pointer;text-align:center;font-family:inherit;}
+.rtype-btn.sel{border-color:var(--primary);background:var(--primary-light);}
+.rtype-icon{font-size:28px;margin-bottom:4px;}
+.rtype-title{font-weight:600;font-size:13px;}
+.rtype-sub{font-size:10px;color:var(--text3);margin-top:2px;}
+.report-section{background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;margin-bottom:10px;}
+.report-controls{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;}
+.prev-wrap{display:none;margin-top:12px;}
+.prev-wrap.show{display:block;}
+.prev-bar{background:var(--text);padding:10px 14px;border-radius:12px 12px 0 0;display:flex;align-items:center;justify-content:space-between;}
+.prev-bar span{color:#fff;font-size:13px;font-weight:500;}
+#reportFrame{width:100%;height:70vh;border:none;background:#fff;border-radius:0 0 12px 12px;}
+
+.icon-picker{display:flex;flex-wrap:wrap;gap:6px;padding:8px 0;}
+.icon-opt{width:40px;height:40px;border-radius:10px;border:2px solid var(--border);background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;transition:all .15s;flex-shrink:0;}
+.icon-opt.selected{border-color:var(--primary);background:var(--primary-light);}
+
+.toast{position:fixed;bottom:76px;left:50%;transform:translateX(-50%) translateY(20px);background:#323232;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;box-shadow:var(--shadow-lg);z-index:999;opacity:0;transition:all .3s;white-space:nowrap;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.empty-state{text-align:center;padding:40px 20px;color:var(--text3);}
+.empty-icon{font-size:48px;margin-bottom:10px;}
+.empty-txt{font-size:14px;}
+</style>
+</head>
+<body>
+
+<div class="appbar">
+  <div class="appbar-logo">Fin<span>Flow</span></div>
+  <div class="appbar-title" id="appbarTitle">Dashboard</div>
+  <button class="icon-btn" onclick="openCurrencyPicker()">&#128176;</button>
+</div>
+
+<div class="sync-bar offline" id="syncBar">
+  <div class="sync-dot"></div>
+  <span id="syncMsg">Checking connection...</span>
+  <div class="sync-user" id="syncUser">
+    <button class="sync-signin-btn" onclick="signInWithGoogle()">Sign in with Google</button>
+  </div>
+</div>
+
+<div class="monthbar">
+  <button class="month-nav-btn" onclick="changeMonth(-1)">&#8249;</button>
+  <span class="month-lbl" id="monthLabel"></span>
+  <button class="month-nav-btn" onclick="changeMonth(1)">&#8250;</button>
+</div>
+
+<div class="scroll-area" id="scrollArea">
+  <!-- DASHBOARD -->
+  <div class="tab-pane active" id="tab-dashboard">
+    <div class="sum-row" id="sumCards"></div>
+    <div class="mcard" style="border-left:4px solid var(--pending);">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px 4px;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:16px;">⏳</span>
+          <span style="font-size:14px;font-weight:600;color:var(--pending);">Pending Payments</span>
+          <span id="pendingCount" style="background:var(--pending);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:100px;display:none;"></span>
+        </div>
+        <button class="mbtn mbtn-tonal" onclick="openPendingSheet(null)" style="padding:5px 12px;font-size:11px;background:var(--pending-bg);color:var(--pending);">+ Add</button>
+      </div>
+      <div id="pendingList"></div>
+      <div id="pendingTotalBar" style="display:none;padding:8px 16px 12px;border-top:1px solid var(--border);font-size:12px;"></div>
+    </div>
+    <div class="mcard"><div class="mcard-title">Budget Overview</div><div id="dashBudget" style="padding:8px 0;"></div></div>
+    <div class="mcard"><div class="mcard-title">Recent Expenses</div><div id="dashRecent"></div></div>
+    <div class="mcard"><div class="mcard-title">EMI Summary</div><div id="dashEmi"></div></div>
+  </div>
+  <!-- EXPENSES -->
+  <div class="tab-pane" id="tab-expenses">
+    <div class="chip-row" id="catChips"></div>
+    <div class="mcard">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px 4px;">
+        <span style="font-size:13px;color:var(--text2);">Total</span>
+        <strong id="expTotal" style="font-size:15px;color:var(--primary);"></strong>
+      </div>
+      <div id="expList"></div>
+    </div>
+  </div>
+  <!-- BUDGET -->
+  <div class="tab-pane" id="tab-budget">
+    <div id="budgetCards"></div>
+    <div class="mcard"><div class="mcard-title">Spending vs Budget</div><div id="budgetBars" style="padding-bottom:4px;"></div></div>
+  </div>
+  <!-- EMIS -->
+  <div class="tab-pane" id="tab-emis">
+    <div class="hscroll" id="emiGrid"></div>
+    <div class="mcard"><div class="mcard-title">Monthly EMI Breakdown</div><div id="emiBreak"></div></div>
+  </div>
+  <!-- SAVINGS -->
+  <div class="tab-pane" id="tab-savings">
+    <div class="hscroll" id="goalsGrid"></div>
+    <div class="mcard"><div class="mcard-title">Add to a Goal</div><div id="addGoalForm" style="padding:12px 16px;"></div></div>
+  </div>
+  <!-- INDIA -->
+  <div class="tab-pane" id="tab-india">
+    <div class="rate-bar">&#127470;&#127475; 1 AED = &#8377;<span id="rateDisp">22.50</span>&nbsp;<input type="number" class="rate-inp" id="rateInp" value="22.50" step="0.1" onchange="updateRate(this.value)"></div>
+    <div style="height:10px;"></div>
+    <div id="indiaList"></div>
+  </div>
+  <!-- REPORTS -->
+  <div class="tab-pane" id="tab-reports">
+    <div class="report-section">
+      <div class="field" style="margin-bottom:14px;"><label class="flbl">Report Heading</label><input type="text" class="finp" id="rep-heading" placeholder="e.g. Saeed Expense"></div>
+      <div class="rtype-grid">
+        <div class="rtype-btn sel" id="rtype-monthly" onclick="selectRType('monthly')"><div class="rtype-icon">&#128197;</div><div class="rtype-title">Monthly</div><div class="rtype-sub">One month detail</div></div>
+        <div class="rtype-btn" id="rtype-yearly" onclick="selectRType('yearly')"><div class="rtype-icon">&#128200;</div><div class="rtype-title">Yearly</div><div class="rtype-sub">Full year + monthly</div></div>
+      </div>
+      <div id="monthly-ctrl">
+        <div class="report-controls">
+          <div class="field"><label class="flbl">Month</label><input type="month" class="finp" id="rep-month" style="width:160px;"></div>
+          <div class="field"><label class="flbl">Currency</label><select class="fsel" id="rep-cur" style="width:100px;"><option value="AED">AED</option><option value="INR">INR</option><option value="BOTH">Both</option></select></div>
+          <button class="mbtn mbtn-filled" onclick="generateReport('monthly')" style="align-self:flex-end;">&#128196; Preview</button>
+        </div>
+      </div>
+      <div id="yearly-ctrl" style="display:none;">
+        <div class="report-controls">
+          <div class="field"><label class="flbl">Year</label><select class="fsel" id="rep-year" style="width:100px;"></select></div>
+          <div class="field"><label class="flbl">Currency</label><select class="fsel" id="rep-cur-yr" style="width:100px;"><option value="AED">AED</option><option value="INR">INR</option><option value="BOTH">Both</option></select></div>
+          <button class="mbtn mbtn-filled" onclick="generateReport('yearly')" style="align-self:flex-end;">&#128196; Preview</button>
+        </div>
+      </div>
+    </div>
+    <div class="prev-wrap" id="previewWrap">
+      <div class="prev-bar"><span id="previewTitle">Report</span>
+        <div style="display:flex;gap:8px;">
+          <button class="mbtn mbtn-tonal" style="padding:6px 14px;font-size:12px;" onclick="printReport()">&#128424; Print</button>
+          <button class="mbtn mbtn-text" style="color:#fff;padding:6px 12px;font-size:12px;" onclick="closePreview()">&#10005;</button>
+        </div>
+      </div>
+      <iframe id="reportFrame" title="Report"></iframe>
+    </div>
+  </div>
+</div>
+
+<div class="bottom-nav">
+  <button class="bnav-item active" id="bn-dashboard" onclick="showTab('dashboard',this,'Dashboard')"><div class="bnav-indicator"></div><div class="bnav-icon">&#127968;</div><div class="bnav-label">Home</div></button>
+  <button class="bnav-item" id="bn-expenses" onclick="showTab('expenses',this,'Expenses')"><div class="bnav-indicator"></div><div class="bnav-icon">&#128184;</div><div class="bnav-label">Expenses</div></button>
+  <button class="bnav-item" id="bn-budget" onclick="showTab('budget',this,'Budget')"><div class="bnav-indicator"></div><div class="bnav-icon">&#127919;</div><div class="bnav-label">Budget</div></button>
+  <button class="bnav-item" id="bn-emis" onclick="showTab('emis',this,'EMIs')"><div class="bnav-indicator"></div><div class="bnav-icon">&#127968;</div><div class="bnav-label">EMIs</div></button>
+  <button class="bnav-item" id="bn-savings" onclick="showTab('savings',this,'Goals')"><div class="bnav-indicator"></div><div class="bnav-icon">&#128176;</div><div class="bnav-label">Goals</div></button>
+  <button class="bnav-item" id="bn-india" onclick="showTab('india',this,'India')"><div class="bnav-indicator"></div><div class="bnav-icon">&#127470;&#127475;</div><div class="bnav-label">India</div></button>
+  <button class="bnav-item" id="bn-reports" onclick="showTab('reports',this,'Reports')"><div class="bnav-indicator"></div><div class="bnav-icon">&#128196;</div><div class="bnav-label">Reports</div></button>
+</div>
+
+<button class="fab" id="fabBtn" onclick="openSheet('fabSheet','fabOverlay')">&#43;</button>
+
+<!-- FAB MENU -->
+<div class="sheet-overlay" id="fabOverlay" onclick="closeSheet('fabSheet','fabOverlay')">
+  <div class="sheet" id="fabSheet" onclick="event.stopPropagation()">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Add New</div>
+    <div style="display:flex;flex-direction:column;gap:4px;padding-bottom:8px;">
+      <button class="list-item" onclick="closeFabOpen('exp')" style="border-radius:12px;cursor:pointer;background:var(--surface2);border:none;"><div class="li-icon" style="background:#E3F2FD;">&#128184;</div><div class="li-body"><div class="li-title">Add Expense</div><div class="li-sub">Record a new spending</div></div></button>
+      <button class="list-item" onclick="closeFabOpen('bud')" style="border-radius:12px;cursor:pointer;background:var(--surface2);border:none;"><div class="li-icon" style="background:#E8F5E9;">&#127919;</div><div class="li-body"><div class="li-title">Set Budget</div><div class="li-sub">Monthly category limit</div></div></button>
+      <button class="list-item" onclick="closeFabOpen('emi')" style="border-radius:12px;cursor:pointer;background:var(--surface2);border:none;"><div class="li-icon" style="background:#FFF3E0;">&#127968;</div><div class="li-body"><div class="li-title">Add EMI</div><div class="li-sub">Track a loan or EMI</div></div></button>
+      <button class="list-item" onclick="closeFabOpen('goal')" style="border-radius:12px;cursor:pointer;background:var(--surface2);border:none;"><div class="li-icon" style="background:#F3E5F5;">&#128176;</div><div class="li-body"><div class="li-title">Savings Goal</div><div class="li-sub">Set a target to save for</div></div></button>
+      <button class="list-item" onclick="closeFabOpen('india')" style="border-radius:12px;cursor:pointer;background:var(--surface2);border:none;"><div class="li-icon" style="background:var(--india-bg);">&#127470;&#127475;</div><div class="li-body"><div class="li-title">India Remittance</div><div class="li-sub">Send money to India</div></div></button>
+      <button class="list-item" onclick="closeFabOpen('pending')" style="border-radius:12px;cursor:pointer;background:var(--surface2);border:none;"><div class="li-icon" style="background:var(--pending-bg);">&#9203;</div><div class="li-body"><div class="li-title">Pending Payment</div><div class="li-sub">Track an upcoming due</div></div></button>
+    </div>
+  </div>
+</div>
+
+<!-- EXPENSE SHEET -->
+<div class="sheet-overlay" id="expOverlay" onclick="closeSheet('expSheet','expOverlay')">
+  <div class="sheet" id="expSheet" onclick="event.stopPropagation()">
+    <div class="sheet-handle"></div><div class="sheet-title" id="expSheetTitle">Add Expense</div>
+    <input type="hidden" id="e-id">
+    <div class="form-row">
+      <div class="field span2"><label class="flbl">Description</label><input type="text" class="finp" id="e-desc" placeholder="e.g. Grocery shopping"></div>
+      <div class="field"><label class="flbl" id="e-cur-lbl">Amount</label><input type="number" class="finp" id="e-amt" placeholder="0.00" inputmode="decimal"></div>
+      <div class="field"><label class="flbl">Category</label><select class="fsel" id="e-cat"><option>Groceries</option><option>Dining</option><option>Transport</option><option>Housing</option><option>Health</option><option>Shopping</option><option>Utilities</option><option>Entertainment</option><option>Travel</option><option>Education</option><option>Misc</option></select></div>
+      <div class="field"><label class="flbl">Date</label><input type="date" class="finp" id="e-date"></div>
+      <div class="field span2"><label class="flbl">Notes</label><input type="text" class="finp" id="e-notes" placeholder="Optional"></div>
+    </div>
+    <div class="sheet-actions"><button class="mbtn mbtn-text" onclick="closeSheet('expSheet','expOverlay')">Cancel</button><button class="mbtn mbtn-filled" onclick="saveExpense()">Save</button></div>
+  </div>
+</div>
+
+<!-- BUDGET SHEET -->
+<div class="sheet-overlay" id="budOverlay" onclick="closeSheet('budSheet','budOverlay')">
+  <div class="sheet" id="budSheet" onclick="event.stopPropagation()">
+    <div class="sheet-handle"></div><div class="sheet-title" id="budSheetTitle">Set Budget</div>
+    <input type="hidden" id="b-id">
+    <div class="form-row">
+      <div class="field span2"><label class="flbl">Category</label><select class="fsel" id="b-cat"><option>Groceries</option><option>Dining</option><option>Transport</option><option>Housing</option><option>Health</option><option>Shopping</option><option>Utilities</option><option>Entertainment</option><option>Travel</option><option>Education</option><option>Misc</option></select></div>
+      <div class="field span2"><label class="flbl" id="b-cur-lbl">Amount / Month</label><input type="number" class="finp" id="b-amt" placeholder="0.00" inputmode="decimal"></div>
+    </div>
+    <div class="sheet-actions"><button class="mbtn mbtn-text" onclick="closeSheet('budSheet','budOverlay')">Cancel</button><button class="mbtn mbtn-filled" onclick="saveBudget()">Save</button></div>
+  </div>
+</div>
+
+<!-- EMI SHEET -->
+<div class="sheet-overlay" id="emiOverlay" onclick="closeSheet('emiSheet','emiOverlay')">
+  <div class="sheet" id="emiSheet" onclick="event.stopPropagation()">
+    <div class="sheet-handle"></div><div class="sheet-title" id="emiSheetTitle">Add EMI</div>
+    <input type="hidden" id="em-id">
+    <div class="form-row">
+      <div class="field span2"><label class="flbl">Loan Name</label><input type="text" class="finp" id="em-name" placeholder="e.g. Home Loan"></div>
+      <div class="field"><label class="flbl">Bank / Lender</label><input type="text" class="finp" id="em-bank" placeholder="e.g. HDFC"></div>
+      <div class="field"><label class="flbl">Currency</label><select class="fsel" id="em-cur"><option value="AED">AED</option><option value="INR">INR</option></select></div>
+      <div class="field"><label class="flbl">Monthly EMI</label><input type="number" class="finp" id="em-monthly" placeholder="0.00" inputmode="decimal"></div>
+      <div class="field"><label class="flbl">Total Amount</label><input type="number" class="finp" id="em-total" placeholder="0.00" inputmode="decimal"></div>
+      <div class="field"><label class="flbl">Paid So Far</label><input type="number" class="finp" id="em-paid" value="0" inputmode="decimal"></div>
+      <div class="field"><label class="flbl">Due Date (day)</label><input type="number" class="finp" id="em-due" placeholder="e.g. 5" min="1" max="31" inputmode="numeric"></div>
+    </div>
+    <div class="sheet-actions"><button class="mbtn mbtn-text" onclick="closeSheet('emiSheet','emiOverlay')">Cancel</button><button class="mbtn mbtn-filled" onclick="saveEmi()">Save</button></div>
+  </div>
+</div>
+
+<!-- GOAL SHEET -->
+<div class="sheet-overlay" id="goalOverlay" onclick="closeSheet('goalSheet','goalOverlay')">
+  <div class="sheet" id="goalSheet" onclick="event.stopPropagation()">
+    <div class="sheet-handle"></div><div class="sheet-title" id="goalSheetTitle">New Goal</div>
+    <input type="hidden" id="g-id">
+    <div class="form-row">
+      <div class="field span2"><label class="flbl">Goal Name</label><input type="text" class="finp" id="g-name" placeholder="e.g. Emergency Fund"></div>
+      <div class="field"><label class="flbl">Emoji</label><input type="text" class="finp" id="g-emoji" placeholder="🎯" maxlength="2"></div>
+      <div class="field"><label class="flbl">Currency</label><select class="fsel" id="g-cur"><option value="AED">AED</option><option value="INR">INR</option></select></div>
+      <div class="field"><label class="flbl">Target Amount</label><input type="number" class="finp" id="g-target" placeholder="0.00" inputmode="decimal"></div>
+      <div class="field"><label class="flbl">Saved So Far</label><input type="number" class="finp" id="g-saved" value="0" inputmode="decimal"></div>
+      <div class="field span2"><label class="flbl">Target Date (optional)</label><input type="date" class="finp" id="g-date"></div>
+    </div>
+    <div class="sheet-actions"><button class="mbtn mbtn-text" onclick="closeSheet('goalSheet','goalOverlay')">Cancel</button><button class="mbtn mbtn-filled" onclick="saveGoal()">Save</button></div>
+  </div>
+</div>
+
+<!-- INDIA SHEET -->
+<div class="sheet-overlay" id="indiaOverlay" onclick="closeSheet('indiaSheet','indiaOverlay')">
+  <div class="sheet" id="indiaSheet" onclick="event.stopPropagation()">
+    <div class="sheet-handle"></div><div class="sheet-title" id="indiaSheetTitle">Add India Entry</div>
+    <input type="hidden" id="i-id">
+    <div class="form-row">
+      <div class="field span2">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+          <label class="flbl">Recipient / Purpose</label>
+          <button class="mbtn mbtn-tonal" onclick="openManageRecipients()" style="padding:4px 10px;font-size:11px;border-radius:100px;">&#9998; Manage</button>
+        </div>
+        <select class="fsel" id="i-recip" onchange="toggleCustom()"></select>
+      </div>
+      <div class="field span2" id="i-custom-wrap" style="display:none;"><label class="flbl">One-time Name</label><input type="text" class="finp" id="i-custom" placeholder="e.g. Water bill"></div>
+      <div class="field span2" id="i-new-wrap" style="display:none;">
+        <label class="flbl">New Recipient Name</label>
+        <div style="display:flex;gap:8px;"><input type="text" class="finp" id="i-new-name" placeholder="e.g. Rent"><button class="mbtn mbtn-tonal" onclick="saveNewRecipient()" style="white-space:nowrap;flex-shrink:0;padding:10px 14px;">Save</button></div>
+      </div>
+      <div class="field"><label class="flbl">Amount (INR &#8377;)</label><input type="number" class="finp" id="i-amt" placeholder="0.00" inputmode="decimal"></div>
+      <div class="field"><label class="flbl">Date</label><input type="date" class="finp" id="i-date"></div>
+      <div class="field span2"><label class="flbl">Notes</label><input type="text" class="finp" id="i-notes" placeholder="Optional"></div>
+    </div>
+    <div class="sheet-actions"><button class="mbtn mbtn-text" onclick="closeSheet('indiaSheet','indiaOverlay')">Cancel</button><button class="mbtn mbtn-filled" onclick="saveIndiaEntry()">Save</button></div>
+  </div>
+</div>
+
+<!-- PENDING SHEET -->
+<div class="sheet-overlay" id="pendingOverlay" onclick="closeSheet('pendingSheet','pendingOverlay')">
+  <div class="sheet" id="pendingSheet" onclick="event.stopPropagation()">
+    <div class="sheet-handle"></div><div class="sheet-title" id="pendingSheetTitle">Add Pending Payment</div>
+    <input type="hidden" id="pp-id">
+    <div class="form-row">
+      <div class="field span2"><label class="flbl">Description</label><input type="text" class="finp" id="pp-desc" placeholder="e.g. Car fine, School fees"></div>
+      <div class="field"><label class="flbl">Amount</label><input type="number" class="finp" id="pp-amt" placeholder="0.00" inputmode="decimal"></div>
+      <div class="field"><label class="flbl">Currency</label><select class="fsel" id="pp-cur"><option value="AED">AED</option><option value="INR">INR</option></select></div>
+      <div class="field"><label class="flbl">Due Date (optional)</label><input type="date" class="finp" id="pp-due"></div>
+      <div class="field"><label class="flbl">Category</label>
+        <select class="fsel" id="pp-cat"><option>&#128663; Vehicle</option><option>&#127891; Education</option><option>&#127973; Medical</option><option>&#127968; Housing</option><option>&#128241; Utilities</option><option>&#128179; Credit Card</option><option>&#127963; Government</option><option>&#128722; Shopping</option><option>&#128295; Repair</option><option>&#128203; Insurance</option><option>&#128295; Misc</option></select>
+      </div>
+      <div class="field span2"><label class="flbl">Notes (optional)</label><input type="text" class="finp" id="pp-notes" placeholder="e.g. Q2 school term fees"></div>
+    </div>
+    <div class="sheet-actions"><button class="mbtn mbtn-text" onclick="closeSheet('pendingSheet','pendingOverlay')">Cancel</button><button class="mbtn mbtn-filled" style="background:var(--pending);" onclick="savePending()">Save</button></div>
+  </div>
+</div>
+
+<!-- CURRENCY SHEET -->
+<div class="sheet-overlay" id="curOverlay" onclick="closeSheet('curSheet','curOverlay')">
+  <div class="sheet" id="curSheet" onclick="event.stopPropagation()">
+    <div class="sheet-handle"></div><div class="sheet-title">Select Currency</div>
+    <div style="display:flex;flex-direction:column;gap:6px;padding-bottom:8px;">
+      <button class="list-item" onclick="setCurrency('AED');closeSheet('curSheet','curOverlay');" style="border-radius:12px;cursor:pointer;background:var(--surface);border:none;"><div class="li-icon" style="background:#E3F2FD;font-size:20px;">&#x62f;.&#x625;</div><div class="li-body"><div class="li-title">UAE Dirham</div><div class="li-sub">AED</div></div><div id="cur-aed-check" style="color:var(--primary);font-size:20px;">&#10003;</div></button>
+      <button class="list-item" onclick="setCurrency('INR');closeSheet('curSheet','curOverlay');" style="border-radius:12px;cursor:pointer;background:var(--surface);border:none;"><div class="li-icon" style="background:#FFF3E0;font-size:20px;">&#8377;</div><div class="li-body"><div class="li-title">Indian Rupee</div><div class="li-sub">INR</div></div><div id="cur-inr-check" style="color:var(--primary);font-size:20px;display:none;">&#10003;</div></button>
+    </div>
+  </div>
+</div>
+
+<!-- MANAGE RECIPIENTS SHEET -->
+<div class="sheet-overlay" id="manageRecipOverlay" onclick="closeSheet('manageRecipSheet','manageRecipOverlay')">
+  <div class="sheet" id="manageRecipSheet" onclick="event.stopPropagation()">
+    <div class="sheet-handle"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0 16px;">
+      <div class="sheet-title" style="padding:0;margin:0;">Manage Recipients</div>
+      <button class="mbtn mbtn-tonal" onclick="showAddRecipField()" style="padding:6px 12px;font-size:12px;">+ Add New</button>
+    </div>
+    <div id="addRecipField" style="display:none;margin-bottom:14px;">
+      <div class="field"><label class="flbl">New Recipient Name</label><input type="text" class="finp" id="manage-new-name" placeholder="e.g. Rent, Insurance..."></div>
+      <div style="display:flex;align-items:center;gap:12px;margin:10px 0 6px;">
+        <div id="add-icon-preview" style="width:48px;height:48px;background:var(--india-bg);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;">📌</div>
+        <div><div style="font-size:12px;font-weight:500;color:var(--text2);">Selected icon</div><div style="font-size:11px;color:var(--text3);margin-top:2px;">Tap below to change</div></div>
+      </div>
+      <div class="field"><label class="flbl">Select Icon</label><div id="add-icon-picker" class="icon-picker"></div><input type="hidden" id="manage-new-icon" value="📌"></div>
+      <div style="margin-top:10px;display:flex;gap:8px;">
+        <button class="mbtn mbtn-filled" onclick="manageAddRecipient()">Save</button>
+        <button class="mbtn mbtn-text" onclick="hideAddRecipField()">Cancel</button>
+      </div>
+    </div>
+    <div id="editRecipField" style="display:none;margin-bottom:14px;background:var(--primary-light);border-radius:10px;padding:12px;">
+      <div class="field"><label class="flbl">Edit Name</label><input type="hidden" id="edit-recip-original"><input type="text" class="finp" id="edit-recip-name" placeholder="New name"></div>
+      <div style="display:flex;align-items:center;gap:12px;margin:10px 0 6px;">
+        <div id="edit-icon-preview" style="width:48px;height:48px;background:var(--india-bg);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0;">📌</div>
+        <div><div style="font-size:12px;font-weight:500;color:var(--text2);">Selected icon</div><div style="font-size:11px;color:var(--text3);">Tap below to change</div></div>
+      </div>
+      <div class="field"><label class="flbl">Select Icon</label><div id="edit-icon-picker" class="icon-picker"></div><input type="hidden" id="edit-recip-icon" value="📌"></div>
+      <div style="display:flex;gap:8px;margin-top:10px;">
+        <button class="mbtn mbtn-filled" onclick="manageUpdateRecipient()">Update</button>
+        <button class="mbtn mbtn-text" onclick="hideEditRecipField()">&#10005; Cancel</button>
+      </div>
+    </div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:10px;font-weight:500;">ALL RECIPIENTS</div>
+    <div id="defaultRecipList"></div>
+    <div id="customRecipHeader" style="display:none;"></div>
+    <div id="customRecipList"></div>
+    <div class="sheet-actions"><button class="mbtn mbtn-text" onclick="closeSheet('manageRecipSheet','manageRecipOverlay')">Done</button></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ═══════════════════════
+   FIREBASE INIT
+═══════════════════════ */
+var firebaseConfig = {
+  apiKey: "AIzaSyDnU4-G4mds2-9ZXPXGDsqXykpnuE9cBD4",
+  authDomain: "project-2-f137b.firebaseapp.com",
+  databaseURL: "https://project-2-f137b-default-rtdb.firebaseio.com",
+  projectId: "project-2-f137b",
+  storageBucket: "project-2-f137b.firebasestorage.app",
+  messagingSenderId: "404678138551",
+  appId: "1:404678138551:web:403555f58d82d8cbe44b32"
+};
+
+var firebaseApp = firebase.initializeApp(firebaseConfig);
+var db = firebase.firestore();
+var currentUser = null;
+var isOnline = navigator.onLine;
+var syncTimeout = null;
+
+firebase.auth().onAuthStateChanged(function(user) {
+  if (user) {
+    currentUser = user;
+    showUserInBar(user);
+    showSyncStatus('syncing', 'Syncing...');
+    pullFromCloud();
+  } else {
+    currentUser = null;
+    showSignInBtn();
+    updateOnlineStatus();
+  }
+});
+
+function signInWithGoogle() {
+  if (!isOnline) { toast('No internet connection'); return; }
+  showSyncStatus('syncing', 'Opening sign-in...');
+  var provider = new firebase.auth.GoogleAuthProvider();
+  firebase.auth().signInWithPopup(provider).catch(function(e) {
+    if (e.code === 'auth/popup-blocked') {
+      toast('Popup blocked — allow popups for this site');
+      showSyncStatus('error', 'Allow popups and try again');
+    } else if (e.code === 'auth/popup-closed-by-user') {
+      updateOnlineStatus();
+    } else {
+      showSyncStatus('error', e.message);
+    }
+  });
+}
+
+function signOut() {
+  firebase.auth().signOut().then(function() {
+    currentUser = null;
+    showSignInBtn();
+    toast('Signed out');
+  });
+}
+
+/* ═══════════════════════
+   STATE & STORAGE
+═══════════════════════ */
+var LSKEY = 'finflow_v6';
+var PENDING_KEY = 'finflow_pending';
+
+var S = JSON.parse(localStorage.getItem(LSKEY) || 'null');
+if (!S) {
+  var m = new Date().toISOString().slice(0,7);
+  S = {
+    rate:22.50, currency:'AED', currentMonth:m,
+    expenses:[
+      {id:1,desc:'Carrefour shopping',amt:320,cur:'AED',cat:'Groceries',date:m+'-05',notes:''},
+      {id:2,desc:'Restaurant dinner',amt:85,cur:'AED',cat:'Dining',date:m+'-08',notes:'Family'},
+      {id:3,desc:'Metro recharge',amt:100,cur:'AED',cat:'Transport',date:m+'-10',notes:''},
+      {id:4,desc:'DEWA bill',amt:280,cur:'AED',cat:'Utilities',date:m+'-12',notes:''},
+      {id:5,desc:'Amazon order',amt:150,cur:'AED',cat:'Shopping',date:m+'-15',notes:''}
+    ],
+    budgets:[{id:1,cat:'Groceries',amt:800,cur:'AED'},{id:2,cat:'Dining',amt:300,cur:'AED'},{id:3,cat:'Transport',amt:200,cur:'AED'},{id:4,cat:'Utilities',amt:500,cur:'AED'}],
+    emis:[
+      {id:1,name:'Car Loan',bank:'Emirates NBD',cur:'AED',monthly:1200,total:72000,paid:24000,due:15},
+      {id:2,name:'Home Loan',bank:'HDFC Bank',cur:'INR',monthly:28000,total:3360000,paid:840000,due:5}
+    ],
+    goals:[
+      {id:1,name:'Emergency Fund',emoji:'🛡',cur:'AED',target:20000,saved:8000,date:''},
+      {id:2,name:'Kerala Trip',emoji:'✈',cur:'INR',target:80000,saved:30000,date:'2025-12-01'}
+    ],
+    india:[
+      {id:1,recip:'Mom',icon:'👩',amt:15000,date:m+'-01',notes:'Monthly'},
+      {id:2,recip:'Mom',icon:'👩',amt:15000,date:'2025-02-01',notes:'Monthly'}
+    ],
+    pending:[]
+  };
+  localSave();
+}
+if (!S.pending) S.pending = [];
+var nid = Date.now();
+
+function localSave() {
+  localStorage.setItem(LSKEY, JSON.stringify(S));
+  markPending();
+  scheduleSyncToCloud();
+}
+function markPending() { localStorage.setItem(PENDING_KEY,'1'); }
+function clearPending() { localStorage.removeItem(PENDING_KEY); }
+function hasPending() { return !!localStorage.getItem(PENDING_KEY); }
+
+function scheduleSyncToCloud() {
+  if (!isOnline || !currentUser) return;
+  clearTimeout(syncTimeout);
+  syncTimeout = setTimeout(function() { syncToCloud(); }, 1500);
+}
+
+function syncToCloud() {
+  if (!currentUser || !isOnline) return;
+  showSyncStatus('syncing', 'Saving to cloud...');
+  db.collection('users').doc(currentUser.uid).set({
+    data: JSON.stringify(S),
+    updatedAt: new Date().toISOString(),
+    email: currentUser.email
+  }).then(function() {
+    clearPending();
+    showSyncStatus('online', 'Synced · ' + (currentUser.displayName || currentUser.email));
+  }).catch(function(e) {
+    showSyncStatus('error', 'Sync failed — saved locally');
+  });
+}
+
+function pullFromCloud() {
+  if (!currentUser) return;
+  db.collection('users').doc(currentUser.uid).get().then(function(doc) {
+    if (doc.exists && doc.data().data) {
+      var cd = JSON.parse(doc.data().data);
+      var cUp = new Date(doc.data().updatedAt || 0);
+      var lUp = new Date(S._updatedAt || 0);
+      if (cUp > lUp) {
+        S = cd;
+        if (!S.pending) S.pending = [];
+        localSave();
+        renderAll();
+        toast('Data synced from cloud ☁');
+      } else if (hasPending()) {
+        syncToCloud(); return;
+      }
+      showSyncStatus('online', 'Synced · ' + (currentUser.displayName || currentUser.email));
+      clearPending();
+    } else {
+      syncToCloud();
+    }
+  }).catch(function() {
+    showSyncStatus('error', 'Could not reach cloud — using local data');
+  });
+}
+
+window.addEventListener('online', function() {
+  isOnline = true;
+  if (currentUser) {
+    showSyncStatus('syncing', 'Back online — syncing...');
+    if (hasPending()) syncToCloud();
+    else showSyncStatus('online', 'Online · ' + (currentUser.displayName || ''));
+  } else {
+    updateOnlineStatus();
+  }
+});
+window.addEventListener('offline', function() {
+  isOnline = false;
+  showSyncStatus('offline', 'Offline — saved locally' + (hasPending() ? ' · changes pending' : ''));
+});
+
+function showSyncStatus(t, m) { var b=document.getElementById('syncBar'); b.className='sync-bar '+t; document.getElementById('syncMsg').textContent=m; }
+function updateOnlineStatus() { if(isOnline) showSyncStatus('online','Online — sign in to sync'); else showSyncStatus('offline','Offline — data saved locally'); }
+function showUserInBar(u) {
+  var img = u.photoURL ? '<img src="'+u.photoURL+'" class="sync-avatar" onerror="this.style.display=\'none\'">' : '';
+  document.getElementById('syncUser').innerHTML = img+'<span>'+(u.displayName||u.email)+'</span><button class="sync-signout-btn" onclick="signOut()">Sign out</button>';
+}
+function showSignInBtn() { document.getElementById('syncUser').innerHTML='<button class="sync-signin-btn" onclick="signInWithGoogle()">Sign in with Google</button>'; updateOnlineStatus(); }
+
+/* ═══════════════════════
+   HELPERS
+═══════════════════════ */
+var CAT_ICON={Groceries:'🛒',Dining:'🍽',Transport:'🚗',Housing:'🏠',Health:'💊',Shopping:'🛍',Utilities:'📱',Entertainment:'🎮',Travel:'✈',Education:'📚',Misc:'🔧'};
+var CAT_BG={Groceries:'#FFF3E0',Dining:'#FCE4EC',Transport:'#E8F5E9',Housing:'#E3F2FD',Health:'#F3E5F5',Shopping:'#FCE4EC',Utilities:'#E0F7FA',Entertainment:'#F9FBE7',Travel:'#E8EAF6',Education:'#FFF8E1',Misc:'#EFEBE9'};
+var INDIA_ICON={Mom:'👩',Dad:'👨'};
+var SYMC={AED:'د.إ',INR:'₹'};
+var DEFAULT_RECIP=['Mom','Dad'];
+
+(function(){
+  var icons=JSON.parse(localStorage.getItem('finflow_custom_icons')||'{}');
+  Object.keys(icons).forEach(function(k){INDIA_ICON[k]=icons[k];});
+  var modified=JSON.parse(localStorage.getItem('finflow_modified_defaults')||'{}');
+  Object.keys(modified).forEach(function(o){var i=DEFAULT_RECIP.indexOf(o);if(i>=0)DEFAULT_RECIP[i]=modified[o];});
+  var removed=JSON.parse(localStorage.getItem('finflow_removed_defaults')||'[]');
+  removed.forEach(function(r){var i=DEFAULT_RECIP.indexOf(r);if(i>=0)DEFAULT_RECIP.splice(i,1);});
+})();
+
+function fmt(amt,cur){return SYMC[cur]+Number(amt).toLocaleString('en-IN',{maximumFractionDigits:0});}
+function fmtP(amt,cur){return (cur==='AED'?'AED ':'INR ')+Number(amt).toLocaleString('en-IN',{maximumFractionDigits:0});}
+function ord(n){var s=['th','st','nd','rd'],v=n%100;return s[(v-20)%10]||s[v]||s[0];}
+function findById(arr,id){for(var i=0;i<arr.length;i++){if(arr[i].id===id)return arr[i];}return null;}
+function getCustomRecipients(){return JSON.parse(localStorage.getItem('finflow_recipients')||'[]');}
+function saveCustomRecipientsList(l){localStorage.setItem('finflow_recipients',JSON.stringify(l));}
+function setCurrency(c){S.currency=c;document.getElementById('cur-aed-check').style.display=c==='AED'?'':'none';document.getElementById('cur-inr-check').style.display=c==='INR'?'':'none';localSave();renderAll();}
+function updateRate(v){S.rate=parseFloat(v)||22.50;document.getElementById('rateDisp').textContent=S.rate.toFixed(2);localSave();}
+function changeMonth(d){var p=S.currentMonth.split('-');var dt=new Date(parseInt(p[0]),parseInt(p[1])-1+d);S.currentMonth=dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0');localSave();renderAll();}
+function getMonthLabel(ym){var p=(ym||S.currentMonth).split('-');return new Date(parseInt(p[0]),parseInt(p[1])-1).toLocaleString('en',{month:'long',year:'numeric'});}
+function getMonthShort(ym){var p=(ym||S.currentMonth).split('-');return new Date(parseInt(p[0]),parseInt(p[1])-1).toLocaleString('en',{month:'short'});}
+function curExps(){return S.expenses.filter(function(e){return e.date&&e.date.indexOf(S.currentMonth)===0;});}
+
+/* ═══════════════════════
+   PENDING PAYMENTS
+═══════════════════════ */
+function renderPending(){
+  if(!S.pending)S.pending=[];
+  var items=S.pending;
+  var countEl=document.getElementById('pendingCount');
+  var listEl=document.getElementById('pendingList');
+  var totalEl=document.getElementById('pendingTotalBar');
+  var unpaid=items.filter(function(p){return !p.done;});
+  var paid=items.filter(function(p){return p.done;});
+  countEl.textContent=unpaid.length;
+  countEl.style.display=unpaid.length>0?'inline':'none';
+  if(!items.length){listEl.innerHTML='<div style="padding:12px 16px 14px;font-size:13px;color:var(--text3);">No pending payments. Tap + Add to track upcoming dues.</div>';totalEl.style.display='none';return;}
+  var today=new Date();today.setHours(0,0,0,0);
+  function makeRow(p){
+    var overdue=false,dueLabel='';
+    if(p.due){var d=new Date(p.due);d.setHours(0,0,0,0);var diff=Math.round((d-today)/(1000*60*60*24));if(p.done)dueLabel='Paid';else if(diff<0){dueLabel='Overdue '+Math.abs(diff)+'d';overdue=true;}else if(diff===0){dueLabel='Due Today';overdue=true;}else if(diff<=7)dueLabel='Due in '+diff+'d';else dueLabel=p.due;}
+    var sc=p.done?'var(--green)':overdue?'var(--red)':'var(--yellow)';
+    var bg=p.done?'background:var(--surface2);':'';
+    var strike=p.done?'text-decoration:line-through;color:var(--text3);':'';
+    return '<div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);'+bg+'">'
+      +'<button onclick="togglePending('+p.id+')" style="width:26px;height:26px;border-radius:50%;border:2px solid '+(p.done?'var(--green)':'var(--pending)')+';background:'+(p.done?'var(--green)':'transparent')+';display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;font-size:13px;color:#fff;">'+(p.done?'✓':'')+'</button>'
+      +'<div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:500;'+strike+' white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+p.cat.split(' ')[0]+' '+p.desc+'</div>'+(p.notes?'<div style="font-size:11px;color:var(--text3);">'+p.notes+'</div>':'')+(dueLabel?'<div style="font-size:10px;font-weight:600;color:'+sc+';margin-top:1px;">'+dueLabel+'</div>':'')+'</div>'
+      +'<div style="text-align:right;flex-shrink:0;"><div style="font-size:13px;font-weight:700;color:'+(p.done?'var(--text3)':'var(--pending)')+';">'+fmt(p.amt,p.cur)+'</div><div style="font-size:10px;color:var(--text3);">'+p.cur+'</div></div>'
+      +'<div style="display:flex;flex-direction:column;gap:2px;flex-shrink:0;"><button class="act-btn" onclick="openPendingSheet('+p.id+')" style="color:var(--primary);font-size:15px;">&#9998;</button><button class="act-btn" onclick="delPending('+p.id+')" style="color:var(--red);font-size:15px;">&#128465;</button></div>'
+      +'</div>';
+  }
+  var html='';
+  unpaid.forEach(function(p){html+=makeRow(p);});
+  if(paid.length){html+='<div style="padding:8px 16px;font-size:11px;font-weight:600;color:var(--text3);background:var(--surface2);">PAID ('+paid.length+')</div>';paid.forEach(function(p){html+=makeRow(p);});}
+  listEl.innerHTML=html;
+  var aT=unpaid.filter(function(p){return p.cur==='AED';}).reduce(function(s,p){return s+p.amt;},0);
+  var iT=unpaid.filter(function(p){return p.cur==='INR';}).reduce(function(s,p){return s+p.amt;},0);
+  var parts=[];if(aT>0)parts.push(fmt(aT,'AED'));if(iT>0)parts.push(fmt(iT,'INR'));
+  totalEl.innerHTML=parts.length?'<span style="color:var(--pending);font-weight:600;">Unpaid: '+parts.join(' + ')+'</span>':'<span style="color:var(--green);font-weight:600;">&#10003; All payments cleared!</span>';
+  totalEl.style.display='block';
+}
+function openPendingSheet(id){
+  document.getElementById('pp-id').value=id||'';
+  if(id){var p=findById(S.pending,id);document.getElementById('pendingSheetTitle').textContent='Edit Pending Payment';document.getElementById('pp-desc').value=p.desc;document.getElementById('pp-amt').value=p.amt;document.getElementById('pp-cur').value=p.cur;document.getElementById('pp-due').value=p.due||'';document.getElementById('pp-cat').value=p.cat;document.getElementById('pp-notes').value=p.notes||'';}
+  else{document.getElementById('pendingSheetTitle').textContent='Add Pending Payment';document.getElementById('pp-desc').value='';document.getElementById('pp-amt').value='';document.getElementById('pp-cur').value=S.currency;document.getElementById('pp-due').value='';document.getElementById('pp-notes').value='';}
+  openSheet('pendingSheet','pendingOverlay');
+}
+function savePending(){
+  var id=parseInt(document.getElementById('pp-id').value)||0;
+  var desc=document.getElementById('pp-desc').value.trim(),amt=parseFloat(document.getElementById('pp-amt').value);
+  if(!desc||!amt){toast('Fill description and amount');return;}
+  var cur=document.getElementById('pp-cur').value,due=document.getElementById('pp-due').value,cat=document.getElementById('pp-cat').value,notes=document.getElementById('pp-notes').value.trim();
+  S._updatedAt=new Date().toISOString();
+  if(id){var p=findById(S.pending,id);p.desc=desc;p.amt=amt;p.cur=cur;p.due=due;p.cat=cat;p.notes=notes;toast('Updated');}
+  else{S.pending.push({id:nid++,desc:desc,amt:amt,cur:cur,due:due,cat:cat,notes:notes,done:false});toast('Pending payment added');}
+  localSave();closeSheet('pendingSheet','pendingOverlay');renderPending();
+}
+function togglePending(id){var p=findById(S.pending,id);if(!p)return;p.done=!p.done;S._updatedAt=new Date().toISOString();localSave();renderPending();toast(p.done?'Marked as paid ✓':'Marked as unpaid');}
+function delPending(id){if(!confirm('Delete this pending payment?'))return;S.pending=S.pending.filter(function(p){return p.id!==id;});S._updatedAt=new Date().toISOString();localSave();renderPending();toast('Deleted');}
+
+/* ═══════════════════════
+   RENDER ALL
+═══════════════════════ */
+var activeCatFilter='';
+function renderAll(){
+  document.getElementById('monthLabel').textContent=getMonthLabel();
+  document.getElementById('e-cur-lbl').textContent='Amount ('+S.currency+')';
+  document.getElementById('b-cur-lbl').textContent='Amount/Month ('+S.currency+')';
+  document.getElementById('rateDisp').textContent=S.rate.toFixed(2);
+  document.getElementById('rateInp').value=S.rate;
+  renderPending();renderDashboard();renderExpenses();renderBudget();renderEmis();renderGoals();renderIndia();initReports();buildCatChips();
+}
+
+function renderDashboard(){
+  var exps=curExps().filter(function(e){return e.cur===S.currency;});
+  var tExp=exps.reduce(function(s,e){return s+e.amt;},0);
+  var tEmi=S.emis.filter(function(e){return e.cur===S.currency;}).reduce(function(s,e){return s+e.monthly;},0);
+  var tGoal=S.goals.filter(function(g){return g.cur===S.currency;}).reduce(function(s,g){return s+g.saved;},0);
+  var tIndia=S.india.filter(function(i){return i.date&&i.date.indexOf(S.currentMonth)===0;}).reduce(function(s,i){return s+i.amt;},0);
+  document.getElementById('sumCards').innerHTML=
+    '<div class="sum-chip c-exp"><div class="sum-lbl">This Month</div><div class="sum-amt">'+fmt(tExp,S.currency)+'</div><div class="sum-sub">'+exps.length+' expenses</div></div>'+
+    '<div class="sum-chip c-emi"><div class="sum-lbl">Monthly EMIs</div><div class="sum-amt">'+fmt(tEmi,S.currency)+'</div><div class="sum-sub">'+S.emis.filter(function(e){return e.cur===S.currency;}).length+' loans</div></div>'+
+    '<div class="sum-chip c-sav"><div class="sum-lbl">Total Saved</div><div class="sum-amt">'+fmt(tGoal,S.currency)+'</div><div class="sum-sub">'+S.goals.filter(function(g){return g.cur===S.currency;}).length+' goals</div></div>'+
+    '<div class="sum-chip c-ind"><div class="sum-lbl">India (Month)</div><div class="sum-amt">'+fmt(tIndia,'INR')+'</div><div class="sum-sub">Remittance</div></div>';
+  var buds=S.budgets.filter(function(b){return b.cur===S.currency;});
+  document.getElementById('dashBudget').innerHTML=buds.length?buds.slice(0,4).map(function(b){var sp=curExps().filter(function(e){return e.cat===b.cat&&e.cur===S.currency;}).reduce(function(s,e){return s+e.amt;},0);var pct=Math.min(100,b.amt>0?(sp/b.amt)*100:0);var col=pct>90?'var(--red)':pct>70?'var(--yellow)':'var(--green)';return '<div class="prog-wrap"><div class="prog-row"><span style="font-size:12px;font-weight:500;">'+(CAT_ICON[b.cat]||'')+' '+b.cat+'</span><span style="font-size:11px;color:var(--text2);">'+fmt(sp,S.currency)+'/'+fmt(b.amt,S.currency)+'</span></div><div class="prog-bg"><div class="prog-fill" style="width:'+pct+'%;background:'+col+'"></div></div></div>';}).join(''):'<div class="empty-state" style="padding:20px;"><div class="empty-txt">No budgets set</div></div>';
+  var recent=curExps().filter(function(e){return e.cur===S.currency;}).sort(function(a,b){return b.date.localeCompare(a.date);}).slice(0,5);
+  document.getElementById('dashRecent').innerHTML=recent.length?recent.map(function(e){return expRow(e,false);}).join(''):'<div class="empty-state" style="padding:20px;"><div class="empty-txt">No expenses this month</div></div>';
+  document.getElementById('dashEmi').innerHTML=S.emis.length?S.emis.map(function(e){return '<div class="list-item"><div class="li-icon" style="background:#E3F2FD;">&#127968;</div><div class="li-body"><div class="li-title">'+e.name+'</div><div class="li-sub">'+e.bank+' · Due '+e.due+ord(e.due)+'</div></div><div class="li-right"><div class="li-amt" style="color:var(--primary);">'+fmt(e.monthly,e.cur)+'</div></div></div>';}).join(''):'<div class="empty-state" style="padding:20px;"><div class="empty-txt">No EMIs</div></div>';
+}
+
+function expRow(e,actions){
+  var icon=CAT_ICON[e.cat]||'💰',bg=CAT_BG[e.cat]||'#F5F5F5';
+  var act=actions?'<div class="li-actions"><button class="act-btn" onclick="openExpSheet('+e.id+')" style="color:var(--primary);">&#9998;</button><button class="act-btn" onclick="delExp('+e.id+')" style="color:var(--red);">&#128465;</button></div>':'';
+  return '<div class="list-item"><div class="li-icon" style="background:'+bg+'">'+icon+'</div><div class="li-body"><div class="li-title">'+e.desc+'</div><div class="li-sub">'+e.cat+' · '+e.date+'</div></div><div class="li-right"><div class="li-amt">'+fmt(e.amt,e.cur)+'</div></div>'+act+'</div>';
+}
+function buildCatChips(){
+  var html='<div class="chip '+(activeCatFilter===''?'active':'')+'" onclick="setCatFilter(\'\')">All</div>';
+  ['Groceries','Dining','Transport','Housing','Health','Shopping','Utilities','Entertainment','Travel','Education','Misc'].forEach(function(c){html+='<div class="chip '+(activeCatFilter===c?'active':'')+'" onclick="setCatFilter(\''+c+'\')">'+(CAT_ICON[c]||'')+' '+c+'</div>';});
+  document.getElementById('catChips').innerHTML=html;
+}
+function setCatFilter(c){activeCatFilter=c;buildCatChips();renderExpenses();}
+function renderExpenses(){
+  var exps=curExps().filter(function(e){return e.cur===S.currency;});
+  if(activeCatFilter)exps=exps.filter(function(e){return e.cat===activeCatFilter;});
+  exps.sort(function(a,b){return b.date.localeCompare(a.date);});
+  document.getElementById('expList').innerHTML=exps.length?exps.map(function(e){return expRow(e,true);}).join(''):'<div class="empty-state"><div class="empty-icon">💸</div><div class="empty-txt">No expenses in '+S.currency+'</div></div>';
+  document.getElementById('expTotal').textContent=fmt(exps.reduce(function(s,e){return s+e.amt;},0),S.currency);
+}
+function renderBudget(){
+  var buds=S.budgets.filter(function(b){return b.cur===S.currency;});
+  document.getElementById('budgetCards').innerHTML=buds.length?buds.map(function(b){var sp=curExps().filter(function(e){return e.cat===b.cat&&e.cur===S.currency;}).reduce(function(s,e){return s+e.amt;},0);var pct=Math.min(100,b.amt>0?(sp/b.amt)*100:0);var col=pct>90?'var(--red)':pct>70?'var(--yellow)':'var(--green)';var bgc=pct>90?'var(--red-bg)':pct>70?'var(--yellow-bg)':'var(--green-bg)';return '<div class="mcard" style="margin-bottom:10px;"><div style="display:flex;align-items:center;gap:12px;padding:12px 16px 8px;"><div class="li-icon" style="background:'+bgc+';">'+(CAT_ICON[b.cat]||'')+'</div><div style="flex:1;"><div style="font-weight:600;font-size:14px;">'+b.cat+'</div><div style="font-size:11px;color:var(--text3);">'+fmt(b.amt,b.cur)+'/month</div></div><button class="act-btn" onclick="openBudSheet('+b.id+')" style="color:var(--primary);">&#9998;</button><button class="act-btn" onclick="delBudget('+b.id+')" style="color:var(--red);">&#128465;</button></div><div class="prog-wrap"><div class="prog-row"><span style="font-size:12px;color:var(--text2);">'+fmt(sp,S.currency)+'</span><span style="font-size:12px;font-weight:600;color:'+col+'">'+pct.toFixed(0)+'%</span></div><div class="prog-bg"><div class="prog-fill" style="width:'+pct+'%;background:'+col+'"></div></div></div><div style="padding:4px 16px 12px;font-size:12px;color:var(--text3);">Remaining: <strong>'+fmt(Math.max(0,b.amt-sp),S.currency)+'</strong></div></div>';}).join(''):'<div class="empty-state"><div class="empty-icon">🎯</div><div class="empty-txt">No budgets in '+S.currency+'</div></div>';
+  document.getElementById('budgetBars').innerHTML=buds.length?buds.map(function(b){var sp=curExps().filter(function(e){return e.cat===b.cat&&e.cur===S.currency;}).reduce(function(s,e){return s+e.amt;},0);var pct=Math.min(100,b.amt>0?(sp/b.amt)*100:0);var col=pct>90?'var(--red)':pct>70?'var(--yellow)':'var(--green)';return '<div class="prog-wrap"><div class="prog-row"><span style="font-size:12px;font-weight:500;">'+(CAT_ICON[b.cat]||'')+' '+b.cat+'</span><span style="font-size:11px;">'+fmt(sp,S.currency)+'/'+fmt(b.amt,S.currency)+'</span></div><div class="prog-bg"><div class="prog-fill" style="width:'+pct+'%;background:'+col+'"></div></div></div>';}).join(''):'<div style="padding:12px 16px;font-size:13px;color:var(--text3);">Add budgets above</div>';
+}
+function renderEmis(){
+  document.getElementById('emiGrid').innerHTML=S.emis.length?S.emis.map(function(e){var pct=Math.min(100,e.total>0?(e.paid/e.total)*100:0);var rem=Math.max(0,e.total-e.paid);var mLeft=e.monthly>0?Math.ceil(rem/e.monthly):'?';return '<div class="emi-card"><div style="display:flex;justify-content:space-between;"><div><div class="emi-name">'+e.name+'</div><div class="emi-bank">'+e.bank+' · '+e.cur+'</div></div><div style="display:flex;gap:2px;"><button class="act-btn" onclick="openEmiSheet('+e.id+')" style="color:var(--primary);">&#9998;</button><button class="act-btn" onclick="delEmi('+e.id+')" style="color:var(--red);">&#128465;</button></div></div><div class="emi-amt">'+fmt(e.monthly,e.cur)+'<span style="font-size:11px;color:var(--text3);font-weight:400;">/mo</span></div><div class="prog-bg" style="margin-bottom:6px;"><div class="prog-fill" style="width:'+pct+'%;background:var(--primary);"></div></div><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);"><span>Paid: '+fmt(e.paid,e.cur)+'</span><span>'+mLeft+' months left</span></div></div>';}).join(''):'<div class="empty-state" style="min-width:200px;"><div class="empty-icon">🏦</div><div class="empty-txt">No EMIs</div></div>';
+  document.getElementById('emiBreak').innerHTML=S.emis.length?S.emis.map(function(e){return '<div class="list-item"><div class="li-icon" style="background:#FFF3E0;">&#127968;</div><div class="li-body"><div class="li-title">'+e.name+'</div><div class="li-sub">'+e.bank+'</div></div><div class="li-right"><div class="li-amt" style="color:var(--primary);">'+fmt(e.monthly,e.cur)+'</div><div class="li-date">'+e.cur+'</div></div></div>';}).join(''):'<div class="empty-state" style="padding:20px;"><div class="empty-txt">No EMIs</div></div>';
+}
+function renderGoals(){
+  document.getElementById('goalsGrid').innerHTML=S.goals.length?S.goals.map(function(g){var pct=Math.min(100,g.target>0?(g.saved/g.target)*100:0);var eta=g.date?new Date(g.date).toLocaleDateString('en',{month:'short',year:'numeric'}):'';return '<div class="goal-card"><div style="font-size:28px;margin-bottom:6px;">'+(g.emoji||'🎯')+'</div><div style="display:flex;justify-content:space-between;align-items:flex-start;"><div style="font-size:14px;font-weight:600;margin-bottom:8px;">'+g.name+' <span style="font-size:10px;color:var(--text3);">'+g.cur+'</span></div><div style="display:flex;gap:2px;"><button class="act-btn" onclick="openGoalSheet('+g.id+')" style="color:var(--primary);">&#9998;</button><button class="act-btn" onclick="delGoal('+g.id+')" style="color:var(--red);">&#128465;</button></div></div><div style="font-size:20px;font-weight:700;color:var(--green);margin:4px 0 2px;">'+fmt(g.saved,g.cur)+'</div><div style="font-size:12px;color:var(--text3);margin-bottom:8px;">of '+fmt(g.target,g.cur)+'</div><div class="prog-bg" style="margin-bottom:6px;"><div class="prog-fill" style="width:'+pct+'%;background:var(--green);"></div></div><div style="display:flex;justify-content:space-between;font-size:11px;"><span style="font-weight:600;color:var(--green);">'+pct.toFixed(0)+'%</span><span style="color:var(--text3);">'+eta+'</span></div></div>';}).join(''):'<div class="empty-state" style="min-width:200px;"><div class="empty-icon">💰</div><div class="empty-txt">No goals</div></div>';
+  var opts=S.goals.map(function(g){return '<option value="'+g.id+'">'+g.emoji+' '+g.name+' ('+g.cur+')</option>';}).join('');
+  document.getElementById('addGoalForm').innerHTML=S.goals.length?'<div class="form-row"><div class="field"><label class="flbl">Goal</label><select class="fsel" id="ag-id">'+opts+'</select></div><div class="field"><label class="flbl">Add Amount</label><input type="number" class="finp" id="ag-amt" placeholder="0.00" inputmode="decimal"></div></div><div style="margin-top:12px;"><button class="mbtn mbtn-filled" onclick="addToGoal()">+ Add</button></div>':'<div style="color:var(--text3);font-size:13px;">Create a goal first</div>';
+}
+function renderIndia(){
+  var grouped={};S.india.forEach(function(i){var ym=i.date.slice(0,7);if(!grouped[ym])grouped[ym]=[];grouped[ym].push(i);});
+  var months=Object.keys(grouped).sort(function(a,b){return b.localeCompare(a);});
+  if(!months.length){document.getElementById('indiaList').innerHTML='<div class="empty-state"><div class="empty-icon">🇮🇳</div><div class="empty-txt">No India entries yet</div></div>';return;}
+  document.getElementById('indiaList').innerHTML=months.map(function(ym,idx){
+    var entries=grouped[ym].slice().sort(function(a,b){return a.date.localeCompare(b.date);});
+    var total=entries.reduce(function(s,i){return s+i.amt;},0);var isOpen=idx===0;
+    var preview=entries.slice(0,3).map(function(i){return i.recip;}).join(', ')+(entries.length>3?'…':'');
+    var rows=entries.map(function(i){var d=i.date.slice(8)+' '+getMonthShort(ym);return '<div class="list-item"><div class="li-icon" style="background:var(--india-bg);">'+(i.icon||'💰')+'</div><div class="li-body"><div class="li-title">'+i.recip+'</div>'+(i.notes?'<div class="li-sub">'+i.notes+'</div>':'')+'</div><div class="li-right"><div class="li-amt" style="color:var(--india);">'+fmt(i.amt,'INR')+'</div><div class="li-date">'+d+'</div></div><div class="li-actions"><button class="act-btn" onclick="openIndiaSheet('+i.id+')" style="color:var(--primary);">&#9998;</button><button class="act-btn" onclick="delIndia('+i.id+')" style="color:var(--red);">&#128465;</button></div></div>';}).join('');
+    return '<div class="acc-card"><div class="acc-hdr" onclick="toggleAcc(\'ac-'+ym+'\',\'ar-'+ym+'\')"><div class="acc-badge">'+getMonthLabel(ym)+'</div><div class="acc-info"><div class="acc-title">'+entries.length+' item'+(entries.length!==1?'s':'')+'</div><div class="acc-sub">'+preview+'</div></div><div class="acc-total">'+fmt(total,'INR')+'</div><div class="acc-arrow'+(isOpen?' open':'')+'" id="ar-'+ym+'">&#8964;</div></div><div class="acc-body'+(isOpen?' open':'')+'" id="ac-'+ym+'"><div style="border-top:1px solid var(--border);">'+rows+'</div></div></div>';
+  }).join('');
+}
+function toggleAcc(b,a){var bd=document.getElementById(b),ar=document.getElementById(a);if(bd.classList.contains('open')){bd.classList.remove('open');ar.classList.remove('open');}else{bd.classList.add('open');ar.classList.add('open');}}
+
+/* ═══════════════════════
+   SHEETS
+═══════════════════════ */
+function openSheet(s,o){document.getElementById(o).classList.add('open');document.getElementById(s).classList.add('open');}
+function closeSheet(s,o){document.getElementById(s).classList.remove('open');document.getElementById(o).classList.remove('open');}
+function closeFabOpen(t){closeSheet('fabSheet','fabOverlay');setTimeout(function(){if(t==='exp')openExpSheet(null);else if(t==='bud')openBudSheet(null);else if(t==='emi')openEmiSheet(null);else if(t==='goal')openGoalSheet(null);else if(t==='india')openIndiaSheet(null);else if(t==='pending')openPendingSheet(null);},200);}
+function openCurrencyPicker(){document.getElementById('cur-aed-check').style.display=S.currency==='AED'?'':'none';document.getElementById('cur-inr-check').style.display=S.currency==='INR'?'':'none';openSheet('curSheet','curOverlay');}
+
+function openExpSheet(id){document.getElementById('e-id').value=id||'';if(id){var e=findById(S.expenses,id);document.getElementById('expSheetTitle').textContent='Edit Expense';document.getElementById('e-desc').value=e.desc;document.getElementById('e-amt').value=e.amt;document.getElementById('e-cat').value=e.cat;document.getElementById('e-date').value=e.date;document.getElementById('e-notes').value=e.notes||'';}else{document.getElementById('expSheetTitle').textContent='Add Expense';document.getElementById('e-desc').value='';document.getElementById('e-amt').value='';document.getElementById('e-notes').value='';document.getElementById('e-date').value=new Date().toISOString().slice(0,10);}openSheet('expSheet','expOverlay');}
+function openBudSheet(id){document.getElementById('b-id').value=id||'';if(id){var b=findById(S.budgets,id);document.getElementById('budSheetTitle').textContent='Edit Budget';document.getElementById('b-cat').value=b.cat;document.getElementById('b-amt').value=b.amt;}else{document.getElementById('budSheetTitle').textContent='Set Budget';document.getElementById('b-amt').value='';}openSheet('budSheet','budOverlay');}
+function openEmiSheet(id){document.getElementById('em-id').value=id||'';if(id){var e=findById(S.emis,id);document.getElementById('emiSheetTitle').textContent='Edit EMI';document.getElementById('em-name').value=e.name;document.getElementById('em-bank').value=e.bank;document.getElementById('em-cur').value=e.cur;document.getElementById('em-monthly').value=e.monthly;document.getElementById('em-total').value=e.total;document.getElementById('em-paid').value=e.paid;document.getElementById('em-due').value=e.due;}else{document.getElementById('emiSheetTitle').textContent='Add EMI';document.getElementById('em-name').value='';document.getElementById('em-bank').value='';document.getElementById('em-monthly').value='';document.getElementById('em-total').value='';document.getElementById('em-paid').value='0';document.getElementById('em-due').value='';}openSheet('emiSheet','emiOverlay');}
+function openGoalSheet(id){document.getElementById('g-id').value=id||'';if(id){var g=findById(S.goals,id);document.getElementById('goalSheetTitle').textContent='Edit Goal';document.getElementById('g-name').value=g.name;document.getElementById('g-emoji').value=g.emoji||'';document.getElementById('g-cur').value=g.cur;document.getElementById('g-target').value=g.target;document.getElementById('g-saved').value=g.saved;document.getElementById('g-date').value=g.date||'';}else{document.getElementById('goalSheetTitle').textContent='New Goal';document.getElementById('g-name').value='';document.getElementById('g-emoji').value='';document.getElementById('g-target').value='';document.getElementById('g-saved').value='0';document.getElementById('g-date').value='';}openSheet('goalSheet','goalOverlay');}
+function openIndiaSheet(id){rebuildRecipientSelect(null);document.getElementById('i-id').value=id||'';document.getElementById('i-custom-wrap').style.display='none';document.getElementById('i-new-wrap').style.display='none';if(id){var i=findById(S.india,id);document.getElementById('indiaSheetTitle').textContent='Edit India Entry';var sel=document.getElementById('i-recip');var known=sel.querySelector('option[value="'+i.recip+'"]');if(known){sel.value=i.recip;}else{sel.value='__custom__';document.getElementById('i-custom-wrap').style.display='flex';document.getElementById('i-custom').value=i.recip;}document.getElementById('i-amt').value=i.amt;document.getElementById('i-date').value=i.date;document.getElementById('i-notes').value=i.notes||'';}else{document.getElementById('indiaSheetTitle').textContent='Add India Entry';document.getElementById('i-recip').value=DEFAULT_RECIP[0]||'Mom';document.getElementById('i-amt').value='';document.getElementById('i-notes').value='';document.getElementById('i-date').value=new Date().toISOString().slice(0,10);}openSheet('indiaSheet','indiaOverlay');}
+
+/* ═══════════════════════
+   SAVE / DELETE
+═══════════════════════ */
+function saveExpense(){var id=parseInt(document.getElementById('e-id').value)||0;var desc=document.getElementById('e-desc').value.trim(),amt=parseFloat(document.getElementById('e-amt').value);var cat=document.getElementById('e-cat').value,date=document.getElementById('e-date').value||(S.currentMonth+'-01');var notes=document.getElementById('e-notes').value.trim();if(!desc||!amt){toast('Fill description and amount');return;}S._updatedAt=new Date().toISOString();if(id){var e=findById(S.expenses,id);e.desc=desc;e.amt=amt;e.cat=cat;e.date=date;e.notes=notes;toast('Updated');}else{S.expenses.push({id:nid++,desc:desc,amt:amt,cur:S.currency,cat:cat,date:date,notes:notes});toast('Expense saved');}localSave();closeSheet('expSheet','expOverlay');renderAll();}
+function saveBudget(){var id=parseInt(document.getElementById('b-id').value)||0;var cat=document.getElementById('b-cat').value,amt=parseFloat(document.getElementById('b-amt').value);if(!amt){toast('Enter an amount');return;}S._updatedAt=new Date().toISOString();if(id){var b=findById(S.budgets,id);b.cat=cat;b.amt=amt;toast('Updated');}else{var ix=-1;for(var i=0;i<S.budgets.length;i++){if(S.budgets[i].cat===cat&&S.budgets[i].cur===S.currency){ix=i;break;}}if(ix>=0)S.budgets[ix].amt=amt;else S.budgets.push({id:nid++,cat:cat,amt:amt,cur:S.currency});toast('Budget saved');}localSave();closeSheet('budSheet','budOverlay');renderAll();}
+function saveEmi(){var id=parseInt(document.getElementById('em-id').value)||0;var name=document.getElementById('em-name').value.trim(),bank=document.getElementById('em-bank').value.trim();var cur=document.getElementById('em-cur').value,monthly=parseFloat(document.getElementById('em-monthly').value);var total=parseFloat(document.getElementById('em-total').value)||0,paid=parseFloat(document.getElementById('em-paid').value)||0;var due=parseInt(document.getElementById('em-due').value)||1;if(!name||!monthly){toast('Fill name and monthly EMI');return;}S._updatedAt=new Date().toISOString();if(id){var e=findById(S.emis,id);e.name=name;e.bank=bank;e.cur=cur;e.monthly=monthly;e.total=total;e.paid=paid;e.due=due;toast('Updated');}else{S.emis.push({id:nid++,name:name,bank:bank,cur:cur,monthly:monthly,total:total,paid:paid,due:due});toast('EMI saved');}localSave();closeSheet('emiSheet','emiOverlay');renderAll();}
+function saveGoal(){var id=parseInt(document.getElementById('g-id').value)||0;var name=document.getElementById('g-name').value.trim(),emoji=document.getElementById('g-emoji').value.trim()||'🎯';var cur=document.getElementById('g-cur').value,target=parseFloat(document.getElementById('g-target').value);var saved=parseFloat(document.getElementById('g-saved').value)||0,date=document.getElementById('g-date').value;if(!name||!target){toast('Fill name and target');return;}S._updatedAt=new Date().toISOString();if(id){var g=findById(S.goals,id);g.name=name;g.emoji=emoji;g.cur=cur;g.target=target;g.saved=saved;g.date=date;toast('Updated');}else{S.goals.push({id:nid++,name:name,emoji:emoji,cur:cur,target:target,saved:saved,date:date});toast('Goal created');}localSave();closeSheet('goalSheet','goalOverlay');renderAll();}
+function saveIndiaEntry(){var id=parseInt(document.getElementById('i-id').value)||0;var recip=document.getElementById('i-recip').value,icon='💰';if(recip==='__new__'){toast('Save the new recipient first');return;}if(recip==='__custom__'){recip=document.getElementById('i-custom').value.trim();icon='📝';}else{icon=INDIA_ICON[recip]||'📌';}var amt=parseFloat(document.getElementById('i-amt').value);var date=document.getElementById('i-date').value||(S.currentMonth+'-01');var notes=document.getElementById('i-notes').value.trim();if(!recip||!amt){toast('Fill recipient and amount');return;}S._updatedAt=new Date().toISOString();if(id){var i=findById(S.india,id);i.recip=recip;i.icon=icon;i.amt=amt;i.date=date;i.notes=notes;toast('Updated');}else{S.india.push({id:nid++,recip:recip,icon:icon,amt:amt,date:date,notes:notes});toast('Entry saved');}localSave();closeSheet('indiaSheet','indiaOverlay');renderIndia();}
+
+function delExp(id){if(!confirm('Delete?'))return;S.expenses=S.expenses.filter(function(e){return e.id!==id;});S._updatedAt=new Date().toISOString();localSave();renderAll();toast('Deleted');}
+function delBudget(id){if(!confirm('Delete?'))return;S.budgets=S.budgets.filter(function(b){return b.id!==id;});S._updatedAt=new Date().toISOString();localSave();renderAll();toast('Deleted');}
+function delEmi(id){if(!confirm('Delete?'))return;S.emis=S.emis.filter(function(e){return e.id!==id;});S._updatedAt=new Date().toISOString();localSave();renderAll();toast('Deleted');}
+function delGoal(id){if(!confirm('Delete?'))return;S.goals=S.goals.filter(function(g){return g.id!==id;});S._updatedAt=new Date().toISOString();localSave();renderGoals();toast('Deleted');}
+function delIndia(id){if(!confirm('Delete?'))return;S.india=S.india.filter(function(i){return i.id!==id;});S._updatedAt=new Date().toISOString();localSave();renderIndia();toast('Deleted');}
+function addToGoal(){var id=parseInt(document.getElementById('ag-id').value),amt=parseFloat(document.getElementById('ag-amt').value);if(!amt){toast('Enter an amount');return;}var g=findById(S.goals,id);if(g)g.saved=Math.min(g.target,g.saved+amt);S._updatedAt=new Date().toISOString();localSave();renderGoals();toast('Added');document.getElementById('ag-amt').value='';}
+
+/* ═══════════════════════
+   INDIA RECIPIENTS
+═══════════════════════ */
+function rebuildRecipientSelect(sel){var custom=getCustomRecipients();var html='';DEFAULT_RECIP.forEach(function(r){html+='<option value="'+r+'">'+r+'</option>';});custom.forEach(function(r){html+='<option value="'+r+'">'+r+'</option>';if(!INDIA_ICON[r])INDIA_ICON[r]='📌';});html+='<option value="__custom__">Other (one-time)...</option><option value="__new__">+ Add New Recipient...</option>';document.getElementById('i-recip').innerHTML=html;if(sel)document.getElementById('i-recip').value=sel;}
+function toggleCustom(){var v=document.getElementById('i-recip').value;document.getElementById('i-custom-wrap').style.display=v==='__custom__'?'flex':'none';document.getElementById('i-new-wrap').style.display=v==='__new__'?'flex':'none';}
+function saveNewRecipient(){var name=document.getElementById('i-new-name').value.trim();if(!name){toast('Enter a name');return;}var list=getCustomRecipients();if(list.indexOf(name)>=0){toast('Already exists');return;}list.push(name);saveCustomRecipientsList(list);rebuildRecipientSelect(name);document.getElementById('i-new-wrap').style.display='none';document.getElementById('i-new-name').value='';toast('"'+name+'" added');}
+
+var ALL_ICONS=['👩','👨','👴','👵','👶','👧','👦','🧒','🧑','👱','🧔','👳','🧕','👼','👪','👫','🤝','🫂','⚡','💡','🔌','🔋','🚿','🛁','🧹','🧺','🪣','🛋','🚪','🔑','🕯','⏰','💰','💵','💴','💶','💷','💸','💳','🏦','📈','📉','💹','🪙','💎','🤑','💼','📊','🧾','💊','🏥','🩺','💉','🩹','🩻','🧬','❤️','🏋','🧘','🚑','🫀','🧠','🍽','🍳','🥘','🫖','☕','🥤','🛒','🛍','🏪','🎁','📦','🚗','🚕','🚙','🚌','🛵','✈️','🚂','🚢','⛽','🅿️','🧳','📚','📖','📝','✏️','🖊','📓','🎓','🏫','🔬','📐','📏','🏠','🏡','🏢','🏗','🔧','⚙️','🪛','🔨','🛠','🔩','🪚','🎮','🎯','🎲','🎬','🎵','🎶','🎸','📺','📻','🏆','🥇','🌿','🌱','🌳','🌴','☀️','🌧','❄️','🌊','🌈','🌙','⭐','⛪','🕌','🛕','🙏','✝️','☪️','🕉','☯️','🐶','🐱','🐮','🐷','🐔','🐟','🐬','🐘','🦁','🐯','🦊','🐻','🐼','🦋','📌','📍','⭐','❗','✅','🔔','📣','🔖','🏷'];
+
+function buildIconPicker(containerId,hiddenId,previewId,selectedIcon){var container=document.getElementById(containerId);container.innerHTML=ALL_ICONS.map(function(ic){return '<div class="icon-opt'+(ic===selectedIcon?' selected':'')+'" data-icon="'+ic+'" data-hidden="'+hiddenId+'" data-preview="'+previewId+'">'+ic+'</div>';}).join('');container.onclick=function(e){var el=e.target.closest('.icon-opt');if(!el)return;container.querySelectorAll('.icon-opt').forEach(function(o){o.classList.remove('selected');});el.classList.add('selected');var icon=el.getAttribute('data-icon');document.getElementById(el.getAttribute('data-hidden')).value=icon;var pId=el.getAttribute('data-preview');if(pId)document.getElementById(pId).textContent=icon;};}
+function openManageRecipients(){renderManageRecipients();document.getElementById('addRecipField').style.display='none';document.getElementById('editRecipField').style.display='none';openSheet('manageRecipSheet','manageRecipOverlay');}
+function renderManageRecipients(){
+  var custom=getCustomRecipients();
+  var allRecip=DEFAULT_RECIP.map(function(r){return {name:r,type:'default'};}).concat(custom.map(function(r){return {name:r,type:'custom'};}));
+  document.getElementById('customRecipHeader').style.display='none';document.getElementById('customRecipList').innerHTML='';
+  if(!allRecip.length){document.getElementById('defaultRecipList').innerHTML='<div style="color:var(--text3);font-size:13px;padding:10px 0;">No recipients. Tap + Add New.</div>';return;}
+  var html=allRecip.map(function(item){var badge=item.type==='default'?'<span style="font-size:10px;color:var(--text3);background:var(--surface3);padding:2px 8px;border-radius:100px;white-space:nowrap;">Default</span>':'<span style="font-size:10px;color:var(--primary);background:var(--primary-light);padding:2px 8px;border-radius:100px;white-space:nowrap;">Custom</span>';var icon=INDIA_ICON[item.name]||'📌';return '<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);"><div style="width:36px;height:36px;background:var(--india-bg);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">'+icon+'</div><div style="flex:1;font-size:14px;font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+item.name+'</div>'+badge+'<button class="act-btn" data-action="edit" data-name="'+encodeURIComponent(item.name)+'" data-type="'+item.type+'" style="color:var(--primary);font-size:18px;width:36px;height:36px;">&#9998;</button><button class="act-btn" data-action="delete" data-name="'+encodeURIComponent(item.name)+'" data-type="'+item.type+'" style="color:var(--red);font-size:18px;width:36px;height:36px;">&#128465;</button></div>';}).join('');
+  document.getElementById('defaultRecipList').innerHTML=html;
+  document.getElementById('defaultRecipList').onclick=function(e){var btn=e.target.closest('[data-action]');if(!btn)return;var name=decodeURIComponent(btn.getAttribute('data-name'));var type=btn.getAttribute('data-type');if(btn.getAttribute('data-action')==='edit')startEditRecipient(name);else doDeleteRecipient(name,type);};
+}
+function showAddRecipField(){document.getElementById('addRecipField').style.display='block';document.getElementById('editRecipField').style.display='none';document.getElementById('manage-new-name').value='';document.getElementById('manage-new-icon').value='📌';document.getElementById('add-icon-preview').textContent='📌';buildIconPicker('add-icon-picker','manage-new-icon','add-icon-preview','📌');}
+function hideAddRecipField(){document.getElementById('addRecipField').style.display='none';}
+function manageAddRecipient(){var name=document.getElementById('manage-new-name').value.trim();if(!name){toast('Enter a name');return;}var list=getCustomRecipients();if(list.indexOf(name)>=0||DEFAULT_RECIP.indexOf(name)>=0){toast('Already exists');return;}var icon=document.getElementById('manage-new-icon').value||'📌';list.push(name);saveCustomRecipientsList(list);INDIA_ICON[name]=icon;var icons=JSON.parse(localStorage.getItem('finflow_custom_icons')||'{}');icons[name]=icon;localStorage.setItem('finflow_custom_icons',JSON.stringify(icons));document.getElementById('addRecipField').style.display='none';renderManageRecipients();rebuildRecipientSelect(name);toast('"'+name+'" added');}
+function startEditRecipient(name){document.getElementById('editRecipField').style.display='block';document.getElementById('addRecipField').style.display='none';document.getElementById('edit-recip-original').value=name;document.getElementById('edit-recip-name').value=name;var ci=INDIA_ICON[name]||'📌';document.getElementById('edit-recip-icon').value=ci;document.getElementById('edit-icon-preview').textContent=ci;buildIconPicker('edit-icon-picker','edit-recip-icon','edit-icon-preview',ci);document.getElementById('editRecipField').scrollIntoView({behavior:'smooth',block:'center'});}
+function hideEditRecipField(){document.getElementById('editRecipField').style.display='none';}
+function manageUpdateRecipient(){var original=document.getElementById('edit-recip-original').value;var newName=document.getElementById('edit-recip-name').value.trim();var newIcon=document.getElementById('edit-recip-icon').value||'📌';if(!newName){toast('Enter a name');return;}var list=getCustomRecipients();var allNames=DEFAULT_RECIP.concat(list);if(newName!==original&&allNames.indexOf(newName)>=0){toast('"'+newName+'" already exists');return;}var isDefault=DEFAULT_RECIP.indexOf(original)>=0;if(isDefault){var di=DEFAULT_RECIP.indexOf(original);DEFAULT_RECIP[di]=newName;var mod=JSON.parse(localStorage.getItem('finflow_modified_defaults')||'{}');mod[original]=newName;localStorage.setItem('finflow_modified_defaults',JSON.stringify(mod));}else{var idx=list.indexOf(original);if(idx>=0){list[idx]=newName;saveCustomRecipientsList(list);}}INDIA_ICON[newName]=newIcon;if(newName!==original)delete INDIA_ICON[original];var icons=JSON.parse(localStorage.getItem('finflow_custom_icons')||'{}');icons[newName]=newIcon;if(newName!==original)delete icons[original];localStorage.setItem('finflow_custom_icons',JSON.stringify(icons));var updated=0;S.india.forEach(function(i){if(i.recip===original){i.recip=newName;i.icon=newIcon;updated++;}});if(updated>0){S._updatedAt=new Date().toISOString();localSave();renderIndia();}hideEditRecipField();renderManageRecipients();rebuildRecipientSelect(newName);toast('"'+original+'" updated'+(updated>0?' · '+updated+' entries updated':''));}
+function doDeleteRecipient(name,type){if(!confirm('Delete "'+name+'"?\nExisting entries will not be deleted.')){return;}if(type==='default'){var di=DEFAULT_RECIP.indexOf(name);if(di>=0)DEFAULT_RECIP.splice(di,1);var removed=JSON.parse(localStorage.getItem('finflow_removed_defaults')||'[]');if(removed.indexOf(name)<0)removed.push(name);localStorage.setItem('finflow_removed_defaults',JSON.stringify(removed));}else{var list=getCustomRecipients().filter(function(r){return r!==name;});saveCustomRecipientsList(list);var icons=JSON.parse(localStorage.getItem('finflow_custom_icons')||'{}');delete icons[name];localStorage.setItem('finflow_custom_icons',JSON.stringify(icons));delete INDIA_ICON[name];}document.getElementById('editRecipField').style.display='none';renderManageRecipients();rebuildRecipientSelect(null);toast('"'+name+'" removed');}
+
+/* ═══════════════════════
+   TAB NAV
+═══════════════════════ */
+function showTab(name,el,title){document.querySelectorAll('.tab-pane').forEach(function(t){t.classList.remove('active');});document.querySelectorAll('.bnav-item').forEach(function(t){t.classList.remove('active');});document.getElementById('tab-'+name).classList.add('active');el.classList.add('active');document.getElementById('appbarTitle').textContent=title;document.getElementById('scrollArea').scrollTop=0;document.getElementById('fabBtn').style.display=name==='reports'?'none':'flex';}
+
+/* ═══════════════════════
+   REPORTS
+═══════════════════════ */
+var _rptHTML=null;
+function initReports(){var el=document.getElementById('rep-month');if(el&&!el.value)el.value=S.currentMonth;var saved=localStorage.getItem('finflow_heading');if(saved){var h=document.getElementById('rep-heading');if(h&&!h.value)h.value=saved;}var yrEl=document.getElementById('rep-year');if(yrEl){var years={};S.expenses.forEach(function(e){years[e.date.slice(0,4)]=1;});S.india.forEach(function(i){years[i.date.slice(0,4)]=1;});var cy=new Date().getFullYear()+'';years[cy]=1;yrEl.innerHTML=Object.keys(years).sort(function(a,b){return b-a;}).map(function(y){return '<option value="'+y+'"'+(y===cy?' selected':'')+'>'+y+'</option>';}).join('');}}
+function selectRType(t){document.getElementById('rtype-monthly').classList.toggle('sel',t==='monthly');document.getElementById('rtype-yearly').classList.toggle('sel',t==='yearly');document.getElementById('monthly-ctrl').style.display=t==='monthly'?'block':'none';document.getElementById('yearly-ctrl').style.display=t==='yearly'?'block':'none';closePreview();}
+function rptCSS(){return '<style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:Arial,sans-serif;font-size:13px;color:#212121;background:#fff;padding:24px;}h1{font-size:22px;font-weight:700;}h2{font-size:15px;font-weight:700;margin:20px 0 9px;color:#1565C0;border-bottom:2px solid #1565C0;padding-bottom:4px;}h3{font-size:13px;font-weight:700;margin:13px 0 6px;color:#444;}.hdr{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #1565C0;padding-bottom:12px;margin-bottom:18px;}.logo{font-size:24px;font-weight:900;color:#1565C0;}.meta{font-size:11px;color:#888;text-align:right;line-height:1.7;}.hname{font-size:15px;font-weight:700;color:#212121;}.sum-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px;}.sum-box{background:#F5F5F5;border-left:4px solid #1565C0;border-radius:6px;padding:10px 12px;}.sum-box .lb{font-size:10px;color:#9E9E9E;text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;}.sum-box .vl{font-size:17px;font-weight:700;color:#1565C0;}table{width:100%;border-collapse:collapse;margin-bottom:12px;font-size:12px;}th{background:#1565C0;color:#fff;padding:7px 9px;text-align:left;font-weight:600;}td{padding:6px 9px;border-bottom:1px solid #EEE;}tr:nth-child(even) td{background:#FAFAFA;}.tr-tot td{font-weight:700;background:#E3F2FD!important;border-top:2px solid #1565C0;}.india-wrap{background:#FBE9E7;border-left:4px solid #BF360C;border-radius:6px;padding:12px;margin-bottom:12px;}.india-wrap h4{color:#BF360C;font-size:13px;font-weight:700;margin-bottom:8px;}.mb-hdr{background:#F5F5F5;padding:9px 12px;display:flex;justify-content:space-between;border-radius:6px 6px 0 0;border-bottom:1px solid #E0E0E0;}.mb-hdr .mn{font-weight:700;color:#1565C0;font-size:13px;}.mb-body{padding:10px 12px;border:1px solid #E0E0E0;border-top:none;border-radius:0 0 6px 6px;margin-bottom:12px;}.no-data{color:#9E9E9E;font-style:italic;font-size:12px;padding:6px 0;}@media print{body{padding:12px 16px;}}</style>';}
+function bCT(cats,cur){var keys=Object.keys(cats);if(!keys.length)return '<p class="no-data">No expenses.</p>';keys.sort(function(a,b){return cats[b]-cats[a];});var tot=keys.reduce(function(s,k){return s+cats[k];},0);return '<table><thead><tr><th>Category</th><th style="text-align:right">Amount</th><th style="text-align:right">Share</th></tr></thead><tbody>'+keys.map(function(k){return '<tr><td>'+k+'</td><td style="text-align:right">'+fmtP(cats[k],cur)+'</td><td style="text-align:right">'+(tot>0?(cats[k]/tot*100).toFixed(1):0)+'%</td></tr>';}).join('')+'<tr class="tr-tot"><td>Total</td><td style="text-align:right">'+fmtP(tot,cur)+'</td><td style="text-align:right">100%</td></tr></tbody></table>';}
+function gCB(exps,cur){var c={};exps.filter(function(e){return e.cur===cur;}).forEach(function(e){if(!c[e.cat])c[e.cat]=0;c[e.cat]+=e.amt;});return c;}
+function bET(exps,cur){var f=exps.filter(function(e){return e.cur===cur;}).sort(function(a,b){return a.date.localeCompare(b.date);});if(!f.length)return '<p class="no-data">No transactions.</p>';var tot=f.reduce(function(s,e){return s+e.amt;},0);return '<table><thead><tr><th>Date</th><th>Description</th><th>Category</th><th style="text-align:right">Amount</th></tr></thead><tbody>'+f.map(function(e){return '<tr><td>'+e.date+'</td><td>'+e.desc+(e.notes?' ('+e.notes+')':'')+'</td><td>'+e.cat+'</td><td style="text-align:right">'+fmtP(e.amt,cur)+'</td></tr>';}).join('')+'<tr class="tr-tot"><td colspan="3">Total</td><td style="text-align:right">'+fmtP(tot,cur)+'</td></tr></tbody></table>';}
+function bIT(entries){if(!entries.length)return '<p class="no-data">No entries.</p>';var tot=entries.reduce(function(s,i){return s+i.amt;},0);return '<table><thead><tr><th>Date</th><th>Recipient</th><th>Notes</th><th style="text-align:right">INR</th></tr></thead><tbody>'+entries.map(function(i){return '<tr><td>'+i.date+'</td><td>'+i.recip+'</td><td>'+(i.notes||'-')+'</td><td style="text-align:right">'+fmtP(i.amt,'INR')+'</td></tr>';}).join('')+'<tr class="tr-tot"><td colspan="3">Total</td><td style="text-align:right">'+fmtP(tot,'INR')+'</td></tr></tbody></table>';}
+function generateReport(type){var heading=(document.getElementById('rep-heading').value.trim())||'FinFlow Report';localStorage.setItem('finflow_heading',heading);var now=new Date().toLocaleDateString('en',{day:'numeric',month:'long',year:'numeric'});var rl='1 AED = INR '+S.rate.toFixed(2);var html='';if(type==='monthly'){var ym=document.getElementById('rep-month').value;if(!ym){toast('Select a month');return;}var rc=document.getElementById('rep-cur').value;var label=getMonthLabel(ym);var exps=S.expenses.filter(function(e){return e.date&&e.date.indexOf(ym)===0;});var iE=S.india.filter(function(i){return i.date&&i.date.indexOf(ym)===0;});var aT=exps.filter(function(e){return e.cur==='AED';}).reduce(function(s,e){return s+e.amt;},0);var iT=exps.filter(function(e){return e.cur==='INR';}).reduce(function(s,e){return s+e.amt;},0);var indT=iE.reduce(function(s,i){return s+i.amt;},0);var eA=S.emis.filter(function(e){return e.cur==='AED';}).reduce(function(s,e){return s+e.monthly;},0);var eI=S.emis.filter(function(e){return e.cur==='INR';}).reduce(function(s,e){return s+e.monthly;},0);var sm='<div class="sum-row">';if(rc==='AED'||rc==='BOTH')sm+='<div class="sum-box"><div class="lb">AED Expenses</div><div class="vl">'+fmtP(aT,'AED')+'</div></div><div class="sum-box"><div class="lb">AED EMIs</div><div class="vl">'+fmtP(eA,'AED')+'</div></div>';if(rc==='INR'||rc==='BOTH')sm+='<div class="sum-box"><div class="lb">INR Expenses</div><div class="vl">'+fmtP(iT,'INR')+'</div></div><div class="sum-box"><div class="lb">INR EMIs</div><div class="vl">'+fmtP(eI,'INR')+'</div></div>';sm+='<div class="sum-box"><div class="lb">India Remittance</div><div class="vl">'+fmtP(indT,'INR')+'</div></div></div>';var body='';if(rc==='AED'||rc==='BOTH'){body+='<h2>AED Expenses</h2><h3>Categories</h3>'+bCT(gCB(exps,'AED'),'AED')+'<h3>Transactions</h3>'+bET(exps,'AED');}if(rc==='INR'||rc==='BOTH'){body+='<h2>INR Expenses</h2><h3>Categories</h3>'+bCT(gCB(exps,'INR'),'INR')+'<h3>Transactions</h3>'+bET(exps,'INR');}var bR=S.budgets.filter(function(b){return rc==='BOTH'||b.cur===rc;}).map(function(b){var sp=exps.filter(function(e){return e.cat===b.cat&&e.cur===b.cur;}).reduce(function(s,e){return s+e.amt;},0);var pc=b.amt>0?(sp/b.amt*100).toFixed(1):'0';var st=parseFloat(pc)>90?'Over Budget':parseFloat(pc)>70?'Caution':'On Track';return '<tr><td>'+b.cat+'</td><td>'+b.cur+'</td><td style="text-align:right">'+fmtP(b.amt,b.cur)+'</td><td style="text-align:right">'+fmtP(sp,b.cur)+'</td><td style="text-align:right">'+pc+'%</td><td>'+st+'</td></tr>';}).join('');if(bR)body+='<h2>Budget vs Actual</h2><table><thead><tr><th>Category</th><th>Cur</th><th style="text-align:right">Budget</th><th style="text-align:right">Spent</th><th style="text-align:right">Used%</th><th>Status</th></tr></thead><tbody>'+bR+'</tbody></table>';body+='<h2>India Remittance</h2><div class="india-wrap"><h4>Total: '+fmtP(indT,'INR')+'</h4>'+bIT(iE)+'</div>';html='<!DOCTYPE html><html><head><meta charset="UTF-8">'+rptCSS()+'</head><body><div class="hdr"><div><div class="logo">FinFlow</div><h1>'+label+'</h1><p style="font-size:11px;color:#888;margin-top:2px;">Monthly Report</p></div><div class="meta"><span class="hname">'+heading+'</span><br>Generated: '+now+'<br>'+rl+'</div></div>'+sm+body+'<div style="margin-top:24px;text-align:center;font-size:10px;color:#9E9E9E;">'+heading+' &mdash; '+label+'</div></body></html>';document.getElementById('previewTitle').textContent=label;}else{var year=document.getElementById('rep-year').value;if(!year){toast('Select a year');return;}var rcy=document.getElementById('rep-cur-yr').value;var aE=S.expenses.filter(function(e){return e.date&&e.date.indexOf(year)===0;});var aI=S.india.filter(function(i){return i.date&&i.date.indexOf(year)===0;});var aTy=aE.filter(function(e){return e.cur==='AED';}).reduce(function(s,e){return s+e.amt;},0);var iTy=aE.filter(function(e){return e.cur==='INR';}).reduce(function(s,e){return s+e.amt;},0);var indTy=aI.reduce(function(s,i){return s+i.amt;},0);var eAy=S.emis.filter(function(e){return e.cur==='AED';}).reduce(function(s,e){return s+e.monthly;},0)*12;var eIy=S.emis.filter(function(e){return e.cur==='INR';}).reduce(function(s,e){return s+e.monthly;},0)*12;var sy='<div class="sum-row">';if(rcy==='AED'||rcy==='BOTH')sy+='<div class="sum-box"><div class="lb">AED Total</div><div class="vl">'+fmtP(aTy,'AED')+'</div></div><div class="sum-box"><div class="lb">AED EMIs (yr)</div><div class="vl">'+fmtP(eAy,'AED')+'</div></div>';if(rcy==='INR'||rcy==='BOTH')sy+='<div class="sum-box"><div class="lb">INR Total</div><div class="vl">'+fmtP(iTy,'INR')+'</div></div><div class="sum-box"><div class="lb">INR EMIs (yr)</div><div class="vl">'+fmtP(eIy,'INR')+'</div></div>';sy+='<div class="sum-box"><div class="lb">India Total</div><div class="vl">'+fmtP(indTy,'INR')+'</div></div></div>';var cs='';if(rcy==='AED'||rcy==='BOTH')cs+='<h3>AED — Categories</h3>'+bCT(gCB(aE,'AED'),'AED');if(rcy==='INR'||rcy==='BOTH')cs+='<h3>INR — Categories</h3>'+bCT(gCB(aE,'INR'),'INR');var MO=['01','02','03','04','05','06','07','08','09','10','11','12'];var mH='<th>Month</th>';if(rcy==='AED'||rcy==='BOTH')mH+='<th style="text-align:right">AED</th>';if(rcy==='INR'||rcy==='BOTH')mH+='<th style="text-align:right">INR</th>';mH+='<th style="text-align:right">India (INR)</th><th style="text-align:right">Txns</th>';var mR=MO.map(function(mo){var ym2=year+'-'+mo;var me=aE.filter(function(e){return e.date&&e.date.indexOf(ym2)===0;});var mi=aI.filter(function(i){return i.date&&i.date.indexOf(ym2)===0;});var ae=me.filter(function(e){return e.cur==='AED';}).reduce(function(s,e){return s+e.amt;},0);var ie=me.filter(function(e){return e.cur==='INR';}).reduce(function(s,e){return s+e.amt;},0);var ind=mi.reduce(function(s,i){return s+i.amt;},0);if(!me.length&&!ind)return '';var c='<td>'+getMonthShort(ym2)+' '+year+'</td>';if(rcy==='AED'||rcy==='BOTH')c+='<td style="text-align:right">'+(ae>0?fmtP(ae,'AED'):'-')+'</td>';if(rcy==='INR'||rcy==='BOTH')c+='<td style="text-align:right">'+(ie>0?fmtP(ie,'INR'):'-')+'</td>';c+='<td style="text-align:right">'+(ind>0?fmtP(ind,'INR'):'-')+'</td><td style="text-align:right">'+me.length+'</td>';return '<tr>'+c+'</tr>';}).join('');var mSS='<h2>Month-by-Month Summary</h2><table><thead><tr>'+mH+'</tr></thead><tbody>'+(mR||'<tr><td colspan="5" style="text-align:center;color:#9E9E9E;">No data for '+year+'</td></tr>')+'</tbody></table>';var mB=MO.map(function(mo){var ym2=year+'-'+mo;var me=aE.filter(function(e){return e.date&&e.date.indexOf(ym2)===0;});var mi=aI.filter(function(i){return i.date&&i.date.indexOf(ym2)===0;});if(!me.length&&!mi.length)return '';var mA=me.filter(function(e){return e.cur==='AED';}).reduce(function(s,e){return s+e.amt;},0);var mI=me.filter(function(e){return e.cur==='INR';}).reduce(function(s,e){return s+e.amt;},0);var mInd=mi.reduce(function(s,i){return s+i.amt;},0);var ts='';if(rcy==='AED'||rcy==='BOTH')ts+=fmtP(mA,'AED')+' ';if(rcy==='INR'||rcy==='BOTH')ts+=fmtP(mI,'INR')+' ';if(mInd)ts+='| India: '+fmtP(mInd,'INR');var inn='';if((rcy==='AED'||rcy==='BOTH')&&me.filter(function(e){return e.cur==='AED';}).length)inn+='<h3>AED Transactions</h3>'+bET(me,'AED');if((rcy==='INR'||rcy==='BOTH')&&me.filter(function(e){return e.cur==='INR';}).length)inn+='<h3>INR Transactions</h3>'+bET(me,'INR');if(mi.length)inn+='<h3 style="color:#BF360C;">India Remittance</h3>'+bIT(mi);return '<div class="mb-hdr"><span class="mn">'+getMonthLabel(ym2)+'</span><span style="font-weight:600;font-size:12px;">'+ts+'</span></div><div class="mb-body">'+inn+'</div>';}).join('');html='<!DOCTYPE html><html><head><meta charset="UTF-8">'+rptCSS()+'</head><body><div class="hdr"><div><div class="logo">FinFlow</div><h1>'+year+' Annual Report</h1><p style="font-size:11px;color:#888;margin-top:2px;">Yearly Report</p></div><div class="meta"><span class="hname">'+heading+'</span><br>Generated: '+now+'<br>'+rl+'</div></div>'+sy+'<h2>Annual Category Breakdown</h2>'+cs+mSS+'<h2>Monthly Details</h2>'+mB+'<div style="margin-top:24px;text-align:center;font-size:10px;color:#9E9E9E;">'+heading+' &mdash; '+year+' Annual Report</div></body></html>';document.getElementById('previewTitle').textContent=year+' Annual Report';}
+  _rptHTML=html;var frame=document.getElementById('reportFrame');var doc=frame.contentDocument||frame.contentWindow.document;doc.open();doc.write(html);doc.close();document.getElementById('previewWrap').classList.add('show');setTimeout(function(){document.getElementById('previewWrap').scrollIntoView({behavior:'smooth',block:'start'});},100);
+}
+function printReport(){if(!_rptHTML){toast('Generate a report first');return;}var pw=window.open('','_blank');if(!pw){var f=document.getElementById('reportFrame');if(f&&f.contentWindow){f.contentWindow.focus();f.contentWindow.print();}return;}pw.document.open();pw.document.write(_rptHTML.replace('</body>','<script>window.onload=function(){window.print();};<\/script></body>'));pw.document.close();}
+function closePreview(){document.getElementById('previewWrap').classList.remove('show');_rptHTML=null;}
+
+/* ═══════════════════════
+   TOAST & INIT
+═══════════════════════ */
+var toastT;
+function toast(msg){var el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(toastT);toastT=setTimeout(function(){el.classList.remove('show');},2500);}
+
+updateOnlineStatus();
+renderAll();
+</script>
+</body>
+</html>
